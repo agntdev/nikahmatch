@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "View or edit your profile, privacy settings, and delete account"
+              "text": "You haven’t created a profile yet. It only takes a few minutes."
             }
           }
         ],

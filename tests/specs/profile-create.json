@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Start the profile creation wizard (language + rules + fields)"
+              "text": "Let’s create a marriage-focused profile. Choose your language:"
             }
           }
         ],

@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Set quick search criteria (gender, age range, region radius, practice level)"
+              "text": "Choose the kind of introduction you’d like to see."
             }
           }
         ],

@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Report a profile for admin review (appears on each profile card)"
+              "text": "I’m sorry something felt wrong. Choose the closest reason so our community team can review it."
             }
           }
         ],
