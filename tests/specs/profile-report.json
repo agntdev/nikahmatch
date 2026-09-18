@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Report profile",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Report a profile for admin review (appears on each profile card)"
+            }
+          }
+        ],
+        "send": {
+          "callback": "profile:report"
+        }
+      }
+    ]
+  }
+]
