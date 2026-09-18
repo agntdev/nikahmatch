@@ -16,5 +16,41 @@
         "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ владельца пока не настроен." } }]
       }
     ]
+  },
+  {
+    "name": "ban command is protected",
+    "steps": [
+      {
+        "send": { "text": "/ban" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }]
+      }
+    ]
+  },
+  {
+    "name": "unban command is protected",
+    "steps": [
+      {
+        "send": { "text": "/unban" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }]
+      }
+    ]
+  },
+  {
+    "name": "warn command is protected",
+    "steps": [
+      {
+        "send": { "text": "/warn" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }]
+      }
+    ]
+  },
+  {
+    "name": "broadcast command is protected",
+    "steps": [
+      {
+        "send": { "text": "/broadcast" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }]
+      }
+    ]
   }
 ]
