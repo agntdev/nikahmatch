@@ -13,7 +13,7 @@ composer.on("pre_checkout_query", async (ctx) => {
   // Telegram requires this acknowledgement before it will deliver
   // successful_payment. Only accept invoices created by this bot.
   if (ctx.preCheckoutQuery.invoice_payload !== "nika-matchmaker") {
-    await ctx.answerPreCheckoutQuery(false, "That payment belongs to another invoice.");
+    await ctx.answerPreCheckoutQuery(false, "Этот платёж относится к другому счёту.");
     return;
   }
   await ctx.answerPreCheckoutQuery(true);
@@ -29,14 +29,14 @@ function paymentId(ctx: Ctx): string | undefined {
 composer.on("message:successful_payment", async (ctx) => {
   const chargeId = paymentId(ctx);
   if (!chargeId) {
-    await ctx.reply("We couldn’t verify that payment yet. Please contact the community team so we can help.");
+    await ctx.reply("Мы пока не можем подтвердить платёж. Напишите команде сообщества — мы поможем.");
     return;
   }
 
   // Telegram may retry delivery.  Do not send duplicate activation messages.
   if (ctx.session.active && ctx.session.activationPaymentId === chargeId) {
-    await ctx.reply("Your access is already active. Welcome back.", {
-      reply_markup: inlineKeyboard([[inlineButton("Open the menu", "menu:main")]]),
+    await ctx.reply("Доступ уже активен. Рады снова вас видеть.", {
+      reply_markup: inlineKeyboard([[inlineButton("Открыть меню", "menu:main")]]),
     });
     return;
   }
@@ -48,8 +48,8 @@ composer.on("message:successful_payment", async (ctx) => {
     ctx.session.active = true;
     ctx.session.activationPaymentId = chargeId;
     ctx.session.activationFailures = 0;
-    await ctx.reply("Your payment went through and your access is active. Welcome to Nikaḥ Matchmaker!", {
-      reply_markup: inlineKeyboard([[inlineButton("Open the menu", "menu:main")]]),
+    await ctx.reply("Платёж прошёл, доступ активен. Добро пожаловать в «Никаḥ: знакомство»!", {
+      reply_markup: inlineKeyboard([[inlineButton("Открыть меню", "menu:main")]]),
     });
   } catch {
     ctx.session.active = false;
@@ -57,14 +57,14 @@ composer.on("message:successful_payment", async (ctx) => {
     const owner = adminChatId(ctx as never);
     if (owner) {
       try {
-        await ctx.api.sendMessage(owner, "Payment received, but account activation failed. Please review the activation logs.");
+        await ctx.api.sendMessage(owner, "Платёж получен, но активация не завершилась. Проверьте активацию аккаунта.");
       } catch {
         // A blocked or unavailable owner must not turn a user-facing recovery
         // message into another unhandled failure.
       }
     }
     try {
-      await ctx.reply("We received your payment, but activation needs a quick manual check. Please contact the community team and mention that your payment is complete.");
+      await ctx.reply("Платёж получен, но активацию нужно проверить вручную. Напишите команде сообщества и сообщите, что платёж завершён.");
     } catch {
       // Telegram may be temporarily unavailable. The owner alert above is the
       // recovery path; the next successful payment update remains retry-safe.

@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Choose the kind of introduction you’d like to see."
+              "text": "Выберите, с кем вы хотите познакомиться."
             }
           }
         ],

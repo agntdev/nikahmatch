@@ -4,7 +4,7 @@
     "steps": [
       {
         "send": { "text": "/admin_reports" },
-        "expect": [{ "method": "sendMessage", "payload": { "text": "Owner access isn't set up yet." } }]
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ владельца пока не настроен." } }]
       }
     ]
   },
@@ -13,7 +13,7 @@
     "steps": [
       {
         "send": { "text": "/admin_new" },
-        "expect": [{ "method": "sendMessage", "payload": { "text": "Owner access isn't set up yet." } }]
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Доступ владельца пока не настроен." } }]
       }
     ]
   }

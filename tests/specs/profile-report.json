@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "I’m sorry something felt wrong. Choose the closest reason so our community team can review it."
+              "text": "Жаль, что что-то пошло не так. Выберите причину — команда сообщества всё проверит."
             }
           }
         ],

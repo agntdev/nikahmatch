@@ -3,7 +3,7 @@ import type { Ctx } from "../bot.js";
 import { draftFromSession, now, notifyOwner, profileCard } from "../domain.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
 
-registerMainMenuItem({ label: "📝 Create profile", data: "profile:create", order: 10 });
+registerMainMenuItem({ label: "📝 Создать профиль", data: "profile:create", order: 10 });
 
 const composer = new Composer<Ctx>();
 const prompt = (text: string, placeholder: string) => ({
@@ -19,7 +19,7 @@ composer.callbackQuery("profile:create", async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.step = "profile_language";
   ctx.session.draft = {};
-  await ctx.reply("Let’s create a marriage-focused profile. Choose your language:", {
+  await ctx.reply("Создадим профиль для серьёзного знакомства с намерением к никаху. Выберите язык:", {
     reply_markup: inlineKeyboard([[inlineButton("Русский", "profile:lang:ru"), inlineButton("English", "profile:lang:en")]]),
   });
 });
@@ -28,20 +28,20 @@ composer.callbackQuery(/^profile:lang:(ru|en)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.language = ctx.callbackQuery.data.endsWith(":ru") ? "ru" : "en";
   ctx.session.step = "profile_consent";
-  await ctx.reply("This space is for respectful, marriage-focused introductions. Are you 18 or older and happy to follow those rules?", {
-    reply_markup: inlineKeyboard([[inlineButton("✅ I agree", "profile:consent:yes"), inlineButton("Not now", "profile:consent:no")]]),
+  await ctx.reply("Здесь общаются уважительно и только с намерением к браку. Вам уже исполнилось 18 лет и вы согласны соблюдать эти правила?", {
+    reply_markup: inlineKeyboard([[inlineButton("✅ Согласен(на)", "profile:consent:yes"), inlineButton("Не сейчас", "profile:consent:no")]]),
   });
 });
 
 composer.callbackQuery("profile:consent:no", async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.step = undefined;
-  await ctx.reply("That’s okay. You can return whenever you’re ready.");
+  await ctx.reply("Хорошо. Возвращайтесь, когда будете готовы.");
 });
 
 composer.callbackQuery("profile:consent:yes", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await askNext(ctx, "profile_name", "What name should other members see?", "Your display name");
+  await askNext(ctx, "profile_name", "Как к вам обращаться в профиле?", "Ваше имя в профиле");
 });
 
 composer.on("message:text", async (ctx, next) => {
@@ -49,36 +49,36 @@ composer.on("message:text", async (ctx, next) => {
   const draft = draftFromSession(ctx);
   switch (ctx.session.step) {
     case "profile_name":
-      if (text.length < 2 || text.length > 60) { await ctx.reply("Use a name between 2 and 60 characters."); return; }
+      if (text.length < 2 || text.length > 60) { await ctx.reply("Введите имя длиной от 2 до 60 символов."); return; }
       draft.displayName = text;
-      await askNext(ctx, "profile_age", "How old are you? You must be 18 or older.", "Your age"); return;
+      await askNext(ctx, "profile_age", "Сколько вам лет? Профиль доступен с 18 лет.", "Ваш возраст"); return;
     case "profile_age": {
       const age = Number(text);
-      if (!Number.isInteger(age) || age < 18 || age > 100) { await ctx.reply("Profiles are for adults 18 and over. Enter a whole number from 18 to 100."); return; }
+      if (!Number.isInteger(age) || age < 18 || age > 100) { await ctx.reply("Профили доступны только совершеннолетним. Введите целое число от 18 до 100."); return; }
       draft.age = age;
       ctx.session.step = "profile_gender";
-      await ctx.reply("How do you describe yourself?", { reply_markup: inlineKeyboard([[inlineButton("Sister", "profile:gender:woman"), inlineButton("Brother", "profile:gender:man")]]) }); return;
+      await ctx.reply("Как вы себя описываете?", { reply_markup: inlineKeyboard([[inlineButton("Сестра", "profile:gender:woman"), inlineButton("Брат", "profile:gender:man")]]) }); return;
     }
     case "profile_city":
-      if (text.length < 2) { await ctx.reply("Tell us your city or region so we can suggest nearby introductions."); return; }
+      if (text.length < 2) { await ctx.reply("Укажите город или регион, чтобы мы могли предложить знакомства рядом."); return; }
       draft.city = text;
       ctx.session.step = "profile_marital";
-      await ctx.reply("What’s your marital status?", { reply_markup: inlineKeyboard([[inlineButton("Never married", "profile:marital:single"), inlineButton("Divorced", "profile:marital:divorced"), inlineButton("Widowed", "profile:marital:widowed")]]) }); return;
+      await ctx.reply("Каков ваш семейный статус?", { reply_markup: inlineKeyboard([[inlineButton("Не был(а) в браке", "profile:marital:single"), inlineButton("Разведён(а)", "profile:marital:divorced"), inlineButton("Вдовец/вдова", "profile:marital:widowed")]]) }); return;
     case "profile_education":
       draft.education = text;
-      return void (await askNext(ctx, "profile_occupation", "What do you do for work or study?", "Your occupation"));
+      return void (await askNext(ctx, "profile_occupation", "Где вы учитесь или работаете?", "Занятие или профессия"));
     case "profile_sect":
       draft.sect = text;
       ctx.session.step = "profile_practice";
-      await ctx.reply("How would you describe your practice?", { reply_markup: inlineKeyboard([[inlineButton("Growing", "profile:practice:growing"), inlineButton("Practising", "profile:practice:practising"), inlineButton("Very practising", "profile:practice:devout")]]) }); return;
+      await ctx.reply("Как бы вы описали свою практику?", { reply_markup: inlineKeyboard([[inlineButton("В пути", "profile:practice:growing"), inlineButton("Практикую", "profile:practice:practising"), inlineButton("Строго соблюдаю", "profile:practice:devout")]]) }); return;
     case "profile_occupation":
       draft.occupation = text;
-      return void (await askNext(ctx, "profile_bio", "Write a few warm words about yourself and what you hope to find.", "A short introduction"));
+      return void (await askNext(ctx, "profile_bio", "Напишите несколько тёплых слов о себе и о том, кого надеетесь встретить.", "Короткое знакомство"));
     case "profile_bio":
-      if (text.length < 10 || text.length > 500) { await ctx.reply("Keep your introduction between 10 and 500 characters."); return; }
+      if (text.length < 10 || text.length > 500) { await ctx.reply("Текст должен быть длиной от 10 до 500 символов."); return; }
       draft.bio = text;
       ctx.session.step = "profile_photos";
-      await ctx.reply("Your preview is ready. Photos are optional and stay hidden until you choose to show them.", { reply_markup: inlineKeyboard([[inlineButton("Skip photos", "profile:photos:skip")]]) }); return;
+      await ctx.reply("Предпросмотр готов. Фото необязательны и останутся скрытыми, пока вы не решите их показать.", { reply_markup: inlineKeyboard([[inlineButton("Пропустить фото", "profile:photos:skip")]]) }); return;
     default: return next();
   }
 });
@@ -86,7 +86,7 @@ composer.on("message:text", async (ctx, next) => {
 composer.callbackQuery(/^profile:gender:(woman|man)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   draftFromSession(ctx).gender = ctx.callbackQuery.data.endsWith("woman") ? "woman" : "man";
-  await ctx.reply("Which city or region are you in?", prompt("Which city or region are you in?", "City or region"));
+  await ctx.reply("В каком городе или регионе вы живёте?", prompt("В каком городе или регионе вы живёте?", "Город или регион"));
   ctx.session.step = "profile_city";
 });
 
@@ -94,29 +94,29 @@ composer.callbackQuery(/^profile:marital:(single|divorced|widowed)$/, async (ctx
   await ctx.answerCallbackQuery();
   draftFromSession(ctx).maritalStatus = ctx.callbackQuery.data.split(":").pop();
   ctx.session.step = "profile_sect";
-  await ctx.reply("Do you follow a particular school or sect? This is optional.", { reply_markup: inlineKeyboard([[inlineButton("Skip", "profile:sect:skip")]]) });
+  await ctx.reply("Следуете определённой школе или мазхабу? Это необязательно.", { reply_markup: inlineKeyboard([[inlineButton("Пропустить", "profile:sect:skip")]]) });
 });
 
 composer.callbackQuery("profile:sect:skip", async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.step = "profile_practice";
-  await ctx.reply("How would you describe your practice?", { reply_markup: inlineKeyboard([[inlineButton("Growing", "profile:practice:growing"), inlineButton("Practising", "profile:practice:practising"), inlineButton("Very practising", "profile:practice:devout")]]) });
+  await ctx.reply("Как бы вы описали свою практику?", { reply_markup: inlineKeyboard([[inlineButton("В пути", "profile:practice:growing"), inlineButton("Практикую", "profile:practice:practising"), inlineButton("Строго соблюдаю", "profile:practice:devout")]]) });
 });
 
 composer.callbackQuery(/^profile:practice:(growing|practising|devout)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   draftFromSession(ctx).practice = ctx.callbackQuery.data.split(":").pop();
-  await askNext(ctx, "profile_education", "What’s your education or field of study?", "Education");
+  await askNext(ctx, "profile_education", "Какое у вас образование или направление учёбы?", "Образование");
 });
 
 composer.callbackQuery("profile:photos:skip", async (ctx) => {
   await ctx.answerCallbackQuery();
   const d = draftFromSession(ctx);
   const required = ["displayName", "age", "gender", "city", "maritalStatus", "practice", "education", "occupation", "bio"];
-  if (required.some((key) => (d as Record<string, unknown>)[key] === undefined)) { await ctx.reply("A detail is still missing. Tap Create profile to try again."); return; }
+    if (required.some((key) => (d as Record<string, unknown>)[key] === undefined)) { await ctx.reply("Не хватает одной детали. Нажмите «Создать профиль» и попробуйте ещё раз."); return; }
   ctx.session.step = "profile_confirm";
-  await ctx.reply(`Here’s your profile preview:\n\n${profileCard({ ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: false, createdAt: now(), updatedAt: now() } as never, ctx.from.id)}`, {
-    reply_markup: inlineKeyboard([[inlineButton("✅ Confirm profile", "profile:confirm"), inlineButton("Edit later", "profile:create")]]),
+  await ctx.reply(`Вот как выглядит ваш профиль:\n\n${profileCard({ ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: false, createdAt: now(), updatedAt: now() } as never, ctx.from.id)}`, {
+    reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm"), inlineButton("Изменить позже", "profile:create")]]),
   });
 });
 
@@ -127,8 +127,8 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: true, createdAt: timestamp, updatedAt: timestamp };
   ctx.session.draft = undefined;
   ctx.session.step = undefined;
-  const notified = await notifyOwner(ctx, `New profile submitted: ${String(d.displayName)} (${String(d.age)}) in ${String(d.city)}.`);
-  await ctx.reply(notified ? "Your profile is live. The community team has been notified." : "Your profile is saved and live. Owner notifications aren’t set up yet.");
+  const notified = await notifyOwner(ctx, `Новый профиль: ${String(d.displayName)} (${String(d.age)}), ${String(d.city)}.`);
+  await ctx.reply(notified ? "Профиль опубликован. Команда сообщества получила уведомление." : "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены.");
 });
 
 composer.on("message:photo", async (ctx, next) => {
@@ -137,7 +137,7 @@ composer.on("message:photo", async (ctx, next) => {
   const largest = ctx.message.photo.at(-1);
   if (largest) photos.push(largest.file_id);
   ctx.session.draft = { ...(ctx.session.draft ?? {}), photos, hidePhotos: true };
-  await ctx.reply("Photo saved privately for now. Add another, or tap Skip photos to continue.", { reply_markup: inlineKeyboard([[inlineButton("Skip photos", "profile:photos:skip")]]) });
+  await ctx.reply("Фото пока сохранено приватно. Добавьте ещё одно или нажмите «Пропустить фото».", { reply_markup: inlineKeyboard([[inlineButton("Пропустить фото", "profile:photos:skip")]]) });
 });
 
 export default composer;

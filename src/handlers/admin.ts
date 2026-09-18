@@ -7,22 +7,22 @@ const composer = new Composer<Ctx>();
 composer.command("admin_reports", async (ctx) => {
   if (!(await requireOwner(ctx as never))) return;
   const reports = ctx.session.reports ?? [];
-  if (reports.length === 0) { await ctx.reply("There are no reports waiting for review."); return; }
-  await ctx.reply(`There are ${reports.length} report${reports.length === 1 ? "" : "s"} waiting for review.`, { reply_markup: inlineKeyboard([[inlineButton("Review reports", "admin:reports")]]) });
+  if (reports.length === 0) { await ctx.reply("Новых жалоб нет."); return; }
+  await ctx.reply(`На проверку ждут жалобы: ${reports.length}.`, { reply_markup: inlineKeyboard([[inlineButton("Открыть жалобы", "admin:reports")]]) });
 });
 
 composer.command("admin_new", async (ctx) => {
   if (!(await requireOwner(ctx as never))) return;
   const profile = ctx.session.profile;
-  await ctx.reply(profile ? `The newest profile is ${String(profile.displayName)}.` : "There are no new profiles to review.");
+  await ctx.reply(profile ? `Последний профиль: ${String(profile.displayName)}.` : "Новых профилей для проверки нет.");
 });
 
 composer.callbackQuery("admin:reports", async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!(await requireOwner(ctx as never))) return;
   const report = ctx.session.reports?.find((item) => item.status === "open");
-  if (!report) { await ctx.reply("There are no open reports to review."); return; }
-  await ctx.reply(`Report reason: ${String(report.reason)}.`, { reply_markup: inlineKeyboard([[inlineButton("Remove profile", `admin:remove:${String(report.targetId)}`), inlineButton("Dismiss", `admin:dismiss:${String(report.id)}`)]]) });
+  if (!report) { await ctx.reply("Открытых жалоб для проверки нет."); return; }
+  await ctx.reply(`Причина жалобы: ${String(report.reason)}.`, { reply_markup: inlineKeyboard([[inlineButton("Удалить профиль", `admin:remove:${String(report.targetId)}`), inlineButton("Отклонить", `admin:dismiss:${String(report.id)}`)]]) });
 });
 
 composer.callbackQuery(/^admin:(remove|dismiss):(.+)$/, async (ctx) => {
@@ -31,9 +31,9 @@ composer.callbackQuery(/^admin:(remove|dismiss):(.+)$/, async (ctx) => {
   const [, action, id] = ctx.callbackQuery.data.split(":");
   if (action === "remove" && ctx.session.profile && String(ctx.session.profile.userId) === id) ctx.session.profile.deleted = true;
   for (const report of ctx.session.reports ?? []) report.status = action === "remove" ? "resolved" : "dismissed";
-  await ctx.reply(action === "remove" ? "The profile was removed from browsing." : "The report was dismissed.");
+  await ctx.reply(action === "remove" ? "Профиль скрыт из поиска." : "Жалоба отклонена.");
 });
 
-composer.callbackQuery("admin:setup", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.reply(adminChatId(ctx as never) ? "Owner access is ready." : "Owner access isn’t set up yet."); });
+composer.callbackQuery("admin:setup", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.reply(adminChatId(ctx as never) ? "Доступ владельца настроен." : "Доступ владельца пока не настроен."); });
 
 export default composer;
