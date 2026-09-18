@@ -19,6 +19,22 @@ export interface Session {
   active?: boolean;
   activationPaymentId?: string;
   activationFailures?: number;
+  adminActions?: Array<{
+    actionType: string;
+    targetUserId?: number;
+    adminId: number;
+    timestamp: string;
+    reason?: string;
+    actionResult: string;
+  }>;
+  adminState?: {
+    suspendedUntil?: string;
+    banned?: boolean;
+    verified?: boolean;
+    role?: "user" | "moderator";
+    note?: string;
+  };
+  broadcastDraft?: { text?: string; confirmed?: boolean };
 }
 
 export type Ctx = BotContext<Session>;
