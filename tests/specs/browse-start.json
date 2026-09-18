@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Open swipe-like browsing session with quick actions"
+              "text": "Complete your profile first, then you’ll see thoughtful introductions here."
             }
           }
         ],
