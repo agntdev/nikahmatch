@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Russian is the default language",
+    "steps": [
+      {
+        "send": { "callback": "settings:open" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Выберите язык интерфейса." } }]
+      }
+    ]
+  },
+  {
+    "name": "English can be selected and saved",
+    "steps": [
+      {
+        "send": { "callback": "settings:lang:en" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Language saved: English." } }]
+      }
+    ]
+  }
+]

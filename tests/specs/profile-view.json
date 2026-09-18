@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "You haven’t created a profile yet. It only takes a few minutes."
+              "text": "Вы ещё не создали профиль. Это займёт всего несколько минут."
             }
           }
         ],

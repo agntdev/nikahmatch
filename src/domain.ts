@@ -46,7 +46,7 @@ export function draftFromSession(ctx: Ctx): Partial<Profile> {
 }
 
 export function keyboardBack() {
-  return { inline_keyboard: [[{ text: "⬅️ Back to menu", callback_data: "menu:main" }]] };
+  return { inline_keyboard: [[{ text: "⬅️ В меню", callback_data: "menu:main" }]] };
 }
 
 export async function notifyOwner(ctx: Ctx, text: string, replyMarkup?: unknown): Promise<boolean> {
@@ -61,11 +61,11 @@ export async function notifyOwner(ctx: Ctx, text: string, replyMarkup?: unknown)
 }
 
 export function profileLabel(profile: Profile, viewerId?: number): string {
-  if (profile.hideName && profile.userId !== viewerId) return "A community member";
+  if (profile.hideName && profile.userId !== viewerId) return "Участник сообщества";
   return profile.displayName;
 }
 
 export function profileCard(profile: Profile, viewerId?: number): string {
   const name = profileLabel(profile, viewerId);
-  return `${name}, ${profile.age} · ${profile.city}\nPractice: ${profile.practice}\n${profile.bio}`;
+  return `${name}, ${profile.age} · ${profile.city}\nПрактика: ${profile.practice}\n${profile.bio}`;
 }

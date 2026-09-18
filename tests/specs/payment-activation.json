@@ -25,7 +25,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Your payment went through and your access is active. Welcome to Nikaḥ Matchmaker!"
+              "text": "Платёж прошёл, доступ активен. Добро пожаловать в «Никаḥ: знакомство»!"
             }
           }
         ]
@@ -52,7 +52,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "Your access is already active. Welcome back." }
+            "payload": { "text": "Доступ уже активен. Рады снова вас видеть." }
           }
         ]
       }

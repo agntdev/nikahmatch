@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Complete your profile first, then you’ll see thoughtful introductions here."
+              "text": "Сначала заполните профиль — после этого здесь появятся подходящие знакомства."
             }
           }
         ],

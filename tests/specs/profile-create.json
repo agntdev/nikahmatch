@@ -7,7 +7,7 @@
           {
             "method": "sendMessage",
             "payload": {
-              "text": "Let’s create a marriage-focused profile. Choose your language:"
+              "text": "Создадим профиль для серьёзного знакомства с намерением к никаху. Выберите язык:"
             }
           }
         ],
