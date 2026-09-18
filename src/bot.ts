@@ -16,6 +16,9 @@ export interface Session {
   skipped?: string[];
   reports?: Array<Record<string, unknown>>;
   matches?: Array<Record<string, unknown>>;
+  active?: boolean;
+  activationPaymentId?: string;
+  activationFailures?: number;
 }
 
 export type Ctx = BotContext<Session>;
