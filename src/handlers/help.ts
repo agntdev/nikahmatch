@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { en, ru, text } from "../i18n.js";
+import { editTextOrReply } from "../domain.js";
 
 // /help — plain-language explanation for non-technical users. This bot is
 // button-driven: tell the user to tap /start to open the menu rather than listing
@@ -15,7 +16,7 @@ composer.command("help", async (ctx) => {
 
 composer.callbackQuery("menu:help", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.editMessageText(text(ctx, ru.help, en.help), { reply_markup: inlineKeyboard([[inlineButton(text(ctx, ru.back, en.back), "menu:main")]]) });
+  await editTextOrReply(ctx, text(ctx, ru.help, en.help), inlineKeyboard([[inlineButton(text(ctx, ru.back, en.back), "menu:main")]]));
 });
 
 export default composer;

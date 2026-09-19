@@ -55,10 +55,10 @@ export function createBot<S extends object>(
       return await prev(method, payload);
     } catch (error) {
       const message = String(error);
-      if (method === "answerCallbackQuery" && /(too old|timeout|invalid)/i.test(message)) {
+      if (method === "answerCallbackQuery" && /(too old|timeout|invalid|expired)/i.test(message)) {
         return { ok: true, result: true } as never;
       }
-      if (method === "editMessageText" && /there is no text in the message to edit/i.test(message)) {
+      if (method === "editMessageText" && /(there is no text in the message to edit|message.*text.*edit|can't be edited|can not be edited)/i.test(message)) {
         const p = payload as Record<string, unknown>;
         if (typeof p.chat_id === "number" || typeof p.chat_id === "string") {
           const fallback = { ...p };

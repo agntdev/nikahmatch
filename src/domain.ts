@@ -1,5 +1,6 @@
 import type { Ctx } from "./bot.js";
 import { adminChatId } from "./toolkit/index.js";
+import type { InlineKeyboardMarkup } from "./toolkit/ui/keyboard.js";
 
 export type Profile = {
   userId: number;
@@ -43,6 +44,34 @@ export type Report = {
 let clock = (): Date => new Date();
 export const now = (): string => clock().toISOString();
 export const setNow = (next: () => Date): void => { clock = next; };
+
+/**
+ * Inline buttons can be attached to text messages or media messages. Telegram
+ * only permits editMessageText for the former, so menu-like callbacks must
+ * reply when their originating message is a photo, video, or other media.
+ */
+export async function editTextOrReply(
+  ctx: Ctx,
+  text: string,
+  replyMarkup: InlineKeyboardMarkup,
+): Promise<void> {
+  const source = ctx.callbackQuery?.message;
+  if (!source || typeof source.text !== "string") {
+    await ctx.reply(text, { reply_markup: replyMarkup });
+    return;
+  }
+  try {
+    await ctx.editMessageText(text, { reply_markup: replyMarkup });
+  } catch (error) {
+    // Deleted/expired messages are recoverable: show the destination as a new
+    // message instead of leaving the user at a dead button.
+    if (/(message to edit|message.*text|can't be edited|can not be edited)/i.test(String(error))) {
+      await ctx.reply(text, { reply_markup: replyMarkup });
+      return;
+    }
+    throw error;
+  }
+}
 
 export function profileFromSession(ctx: Ctx): Profile | undefined {
   const value = ctx.session.profile;

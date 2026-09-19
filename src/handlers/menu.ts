@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { now, notifyOwner, profileFromSession } from "../domain.js";
+import { editTextOrReply, now, notifyOwner, profileFromSession } from "../domain.js";
 import { inlineButton, inlineKeyboard, mainMenuItems, registerMainMenuItem } from "../toolkit/index.js";
 
 // Russian users can always find their profile from the top-level menu.
@@ -71,7 +71,7 @@ composer.command("menu", async (ctx) => {
 
 composer.callbackQuery("menu:open", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.editMessageText("Выберите, что хотите открыть:", { reply_markup: menuKeyboard() });
+  await editTextOrReply(ctx, "Выберите, что хотите открыть:", menuKeyboard());
 });
 
 composer.callbackQuery("menu:profile", async (ctx) => {
