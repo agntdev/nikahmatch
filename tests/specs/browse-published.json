@@ -1,0 +1,40 @@
+[
+  {
+    "name": "published profiles appear for another user",
+    "steps": [
+      { "send": { "callback": "profile:create", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:lang:ru", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:consent:yes", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "Алия", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "27", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:gender:woman", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "Казань", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:marital:single", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:sect:skip", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:practice:growing", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "Университет", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "Учительница", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "text": "Люблю добрые разговоры и надеюсь встретить внимательного человека.", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:photos:skip", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:auto:yes", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:confirm", "userId": 1, "chatId": 1 }, "expect": [] },
+      { "send": { "callback": "profile:create", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:lang:ru", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:consent:yes", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "Омар", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "29", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:gender:man", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "Казань", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:marital:single", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:sect:skip", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:practice:growing", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "Университет", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "Инженер", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "text": "Ценю уважение и хочу построить добрую семью.", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:photos:skip", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:auto:yes", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "profile:confirm", "userId": 2, "chatId": 2 }, "expect": [] },
+      { "send": { "callback": "browse:start", "userId": 1, "chatId": 1 }, "expect": [{ "method": "sendMessage", "payload": { "text": "Участник сообщества, 29 · Казань\nПрактика: growing\nЦеню уважение и хочу построить добрую семью." } }] }
+    ]
+  }
+]

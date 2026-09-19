@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { draftFromSession, now, notifyOwner, profileCard, purposeSummary, sanitizePurpose } from "../domain.js";
+import { draftFromSession, now, notifyOwner, profileCard, purposeSummary, sanitizePurpose, saveProfileIndex } from "../domain.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
 import { isBlocked } from "./admin.js";
 
@@ -196,6 +196,7 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   const optedIntoChoice = typeof d.autoPublish === "boolean";
   ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: autoPublish || !optedIntoChoice, complete: true, autoPublish, moderationStatus: autoPublish ? "approved" : "pending", status: autoPublish ? "auto_published" : "pending", publicationAction: autoPublish ? "auto_published" : undefined, createdAt: timestamp, updatedAt: timestamp };
   ctx.session.profiles = [...(ctx.session.profiles ?? []).filter((p) => p.userId !== ctx.from.id), ctx.session.profile as Record<string, unknown>];
+  await saveProfileIndex(ctx.session.profile as never);
   const draftPhotos = Array.isArray(d.photos) ? d.photos.filter((value): value is string => typeof value === "string") : [];
   if (draftPhotos.length) {
     ctx.session.profilePhotos = draftPhotos.slice(0, 10).map((fileId, index) => ({

@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { now, sanitizePurpose } from "../domain.js";
+import { now, publishedProfiles, saveProfileIndex, sanitizePurpose } from "../domain.js";
 import { adminChatId, inlineButton, inlineKeyboard, isOwner, registerMainMenuItem } from "../toolkit/index.js";
 
 // Configuration stores only the SHA-256 digest. The token itself never appears
@@ -219,7 +219,7 @@ composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx)
 composer.callbackQuery(/^admin:profiles:(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!(await requireModeratorOrAdmin(ctx))) return;
-  const profiles = (ctx.session.profiles ?? []).filter((p) => p.deleted !== true);
+  const profiles = (await publishedProfiles()).filter((p) => p.deleted !== true) as Array<Record<string, unknown>>;
   const page = Number(ctx.callbackQuery.data.split(":").pop());
   const pageSize = 5;
   const rows = profiles.slice(page * pageSize, (page + 1) * pageSize);
@@ -277,13 +277,15 @@ composer.callbackQuery(/^admin:profile-action:(publish|unpublish|toggle-auto|del
   const action = ctx.callbackQuery.data.split(":")[1];
   const target = Number(ctx.callbackQuery.data.split(":")[2]);
   if (action === "delete" ? !(await requireAdmin(ctx)) : !(await requireModeratorOrAdmin(ctx))) return;
-  const profile = ctx.session.profile;
-  if (!profile || profile.userId !== target) { await ctx.reply("Профиль не найден или уже удалён."); return; }
+  const profile = (await publishedProfiles()).find((candidate) => candidate.userId === target) ??
+    (ctx.session.profile?.userId === target ? ctx.session.profile as never : undefined);
+  if (!profile) { await ctx.reply("Профиль не найден или уже удалён."); return; }
   if (action === "delete") { profile.deleted = true; profile.visible = false; }
   if (action === "publish") { profile.visible = true; profile.moderationStatus = "approved"; profile.status = isModerator(ctx) ? "published" : "published"; profile.publicationAction = isModerator(ctx) ? "moderator_published" : "admin_published"; }
   if (action === "unpublish") { profile.visible = false; profile.moderationStatus = "pending"; profile.status = "unpublished"; profile.publicationAction = "unpublished"; }
   if (action === "toggle-auto") profile.autoPublish = profile.autoPublish !== true;
   profile.updatedAt = now();
+  await saveProfileIndex(profile as never);
   audit(ctx, action, target, "completed");
   await ctx.reply(action === "publish" ? "Профиль опубликован." : action === "unpublish" ? "Профиль снят с публикации." : action === "delete" ? "Профиль удалён." : `Автопубликация ${profile.autoPublish ? "включена" : "выключена"}.`, { reply_markup: roomKeyboard() });
 });

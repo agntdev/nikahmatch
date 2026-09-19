@@ -12,6 +12,28 @@ import {
   type TelemetryEnv,
 } from "./telemetry/reporter.js";
 
+// A small shared durable namespace for domain indexes. Feature handlers use this
+// through the helpers below instead of keeping cross-user data in process memory.
+// It is backed by the same Redis/DO adapter selected for sessions.
+let sharedAdapter: StorageAdapter<unknown> | undefined;
+
+export function setSharedStorage(adapter: StorageAdapter<unknown>): void {
+  sharedAdapter = adapter;
+}
+
+export async function readShared<T>(key: string): Promise<T | undefined> {
+  return sharedAdapter?.read(key) as Promise<T | undefined>;
+}
+
+export async function writeShared<T>(key: string, value: T): Promise<void> {
+  if (!sharedAdapter) throw new Error("shared storage is not configured");
+  await sharedAdapter.write(key, value as unknown);
+}
+
+export async function deleteShared(key: string): Promise<void> {
+  await sharedAdapter?.delete(key);
+}
+
 /** Context for a toolkit bot carrying a typed session `S`. */
 export type BotContext<S extends object = Record<string, unknown>> = Context & SessionFlavor<S>;
 
@@ -45,6 +67,8 @@ export function createBot<S extends object>(
   token: string,
   opts: CreateBotOptions<S>,
 ): Bot<BotContext<S>> {
+  const storage = resolveSessionStorage<S>(opts.storage);
+  setSharedStorage(storage as unknown as StorageAdapter<unknown>);
   const bot = new Bot<BotContext<S>>(token);
   // Telegram can deliver a callback after its acknowledgement window, and an
   // inline button may be attached to a photo rather than a text message. Both
@@ -74,7 +98,7 @@ export function createBot<S extends object>(
     session<S, BotContext<S>>({
       initial: opts.initial,
       // Auto-select: explicit adapter → Redis (REDIS_URL) → in-memory.
-      storage: resolveSessionStorage<S>(opts.storage),
+      storage,
     }),
   );
   // Callback queries can arrive after Telegram's short acknowledgement window
