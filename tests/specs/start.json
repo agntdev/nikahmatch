@@ -17,13 +17,14 @@
                   ],
                   [
                     { "text": "🔎 Найти знакомство", "callback_data": "browse:start" },
-                    { "text": "👤 Мой профиль", "callback_data": "profile:view" }
+                    { "text": "📰 Лента", "callback_data": "feed:open" }
                   ],
                   [
-                    { "text": "⚙️ Фильтры", "callback_data": "browse:filters" },
-                    { "text": "🛡️ Пожаловаться", "callback_data": "profile:report" }
+                    { "text": "👤 Мой профиль", "callback_data": "profile:view" },
+                    { "text": "⚙️ Фильтры", "callback_data": "browse:filters" }
                   ],
                   [
+                    { "text": "🛡️ Пожаловаться", "callback_data": "profile:report" },
                     { "text": "🔐 Комната админа", "callback_data": "admin:entry" }
                   ],
                   [

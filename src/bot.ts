@@ -38,6 +38,26 @@ export interface Session {
   adminRoom?: {
     lastActivity: string;
   };
+  feedPosts?: Array<{
+    postId: string;
+    authorUserId: number;
+    photoFileId: string;
+    captionText: string;
+    createdAt: string;
+    visibility: "public" | "protected";
+    likesCount: number;
+    ratingSum: number;
+    ratingCount: number;
+  }>;
+  feedRatings?: Array<{
+    postId: string;
+    raterUserId: number;
+    rating?: number;
+    liked: boolean;
+    updatedAt: string;
+  }>;
+  feedPostDays?: Record<string, number>;
+  feedReports?: Array<{ postId: string; reporterUserId: number; createdAt: string; status: "open" | "dismissed" | "removed" }>;
 }
 
 export type Ctx = BotContext<Session>;

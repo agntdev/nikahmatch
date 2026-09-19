@@ -98,6 +98,11 @@ export function sanitizePurpose(value: string): string {
     .slice(0, 300);
 }
 
+/** Feed captions are plain text: strip markup-like characters and cap at 500. */
+export function sanitizeCaption(value: string): string {
+  return value.replace(/[<>*_`[\]{}]/g, "").replace(/\s+/g, " ").trim().slice(0, 500);
+}
+
 export function purposeSummary(profile: Partial<Profile>): string {
   const purposeText = profile.fundraisingPurposeText ?? profile.fundraising_purpose_text;
   const amountValue = profile.fundraisingTargetAmount ?? profile.fundraising_target_amount;
