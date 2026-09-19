@@ -22,6 +22,12 @@ export type Profile = {
   deleted?: boolean;
   createdAt: string;
   updatedAt: string;
+  fundraisingPurposeText?: string;
+  fundraisingTargetAmount?: number;
+  fundraisingTargetCurrency?: string;
+  fundraising_purpose_text?: string;
+  fundraising_target_amount?: number;
+  fundraising_target_currency?: string;
 };
 
 export type Report = {
@@ -69,5 +75,38 @@ export function profileLabel(profile: Profile, viewerId?: number): string {
 
 export function profileCard(profile: Profile, viewerId?: number): string {
   const name = profileLabel(profile, viewerId);
-  return `${name}, ${profile.age} · ${profile.city}\nПрактика: ${profile.practice}\n${profile.bio}`;
+  const purposeText = profile.fundraisingPurposeText ?? profile.fundraising_purpose_text;
+  const amountValue = profile.fundraisingTargetAmount ?? profile.fundraising_target_amount;
+  const currency = profile.fundraisingTargetCurrency ?? profile.fundraising_target_currency;
+  const purpose = purposeText
+    ? `\n🎯 Цель: ${purposeText.slice(0, 80)}${purposeText.length > 80 ? "…" : ""}`
+    : "";
+  const amount = amountValue !== undefined && currency
+    ? `\nСумма: ${amountValue} ${currency}`
+    : "";
+  return `${name}, ${profile.age} · ${profile.city}\nПрактика: ${profile.practice}\n${profile.bio}${purpose}${amount}`;
+}
+
+/** Keep user-provided profile text safe and free of off-platform donation links. */
+export function sanitizePurpose(value: string): string {
+  return value
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/www\.\S+/gi, "")
+    .replace(/[<>*_`[\]{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+}
+
+export function purposeSummary(profile: Partial<Profile>): string {
+  const purposeText = profile.fundraisingPurposeText ?? profile.fundraising_purpose_text;
+  const amountValue = profile.fundraisingTargetAmount ?? profile.fundraising_target_amount;
+  const currency = profile.fundraisingTargetCurrency ?? profile.fundraising_target_currency;
+  if (!purposeText) return "";
+  const preview = purposeText.slice(0, 120);
+  const suffix = purposeText.length > 120 ? "…" : "";
+  const amount = amountValue !== undefined && currency
+    ? ` · ${amountValue} ${currency}`
+    : "";
+  return `🎯 Цель: ${preview}${suffix}${amount}`;
 }

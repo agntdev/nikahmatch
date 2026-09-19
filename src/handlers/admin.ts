@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { now } from "../domain.js";
+import { now, sanitizePurpose } from "../domain.js";
 import { adminChatId, inlineButton, inlineKeyboard, isOwner, registerMainMenuItem } from "../toolkit/index.js";
 
 // Configuration stores only the SHA-256 digest. The token itself never appears
@@ -233,11 +233,47 @@ composer.callbackQuery(/^admin:profile:(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
   const p = ctx.session.profile;
   if (!p || String(p.userId) !== ctx.callbackQuery.data.split(":").pop()) { await ctx.reply("Профиль не найден или уже удалён."); return; }
-  await ctx.reply(`Профиль для проверки\n\nИмя: ${p.displayName}\nВозраст: ${p.age}\nПол: ${p.gender}\nРегион: ${p.city}\nСтатус: ${p.maritalStatus}\nПрактика: ${p.practice}\nОбразование: ${p.education}\nЗанятие: ${p.occupation}\nО себе: ${p.bio}\nКонтакты: не запрашивались`, { reply_markup: inlineKeyboard([
+  const purpose = p.fundraisingPurposeText ?? p.fundraising_purpose_text;
+  const targetAmount = p.fundraisingTargetAmount ?? p.fundraising_target_amount;
+  const targetCurrency = p.fundraisingTargetCurrency ?? p.fundraising_target_currency;
+  const fundraising = purpose ? `\nЦель (сбор средств): ${purpose}${targetAmount !== undefined && targetCurrency ? `\nСумма: ${targetAmount} ${targetCurrency}` : ""}` : "\nЦель (сбор средств): не указана";
+  await ctx.reply(`Профиль для проверки\n\nИмя: ${p.displayName}\nВозраст: ${p.age}\nПол: ${p.gender}\nРегион: ${p.city}\nСтатус: ${p.maritalStatus}\nПрактика: ${p.practice}\nОбразование: ${p.education}\nЗанятие: ${p.occupation}\nО себе: ${p.bio}${fundraising}\nКонтакты: не запрашивались`, { reply_markup: inlineKeyboard([
+    [inlineButton("Изменить цель", `admin:fundraising:edit:${p.userId}`), inlineButton("Очистить цель", `admin:fundraising:clear:${p.userId}`)],
     [inlineButton("✅ Одобрить", `admin:approve:${p.userId}`), inlineButton("⚠️ Предупредить", `admin:warn:${p.userId}`)],
     [inlineButton("⏸ Приостановить", `admin:suspend:${p.userId}`), inlineButton("🚫 Заблокировать", `admin:ban:${p.userId}`)],
     [inlineButton("Удалить профиль", `admin:delete:${p.userId}`), inlineButton("Добавить заметку", `admin:note:${p.userId}`)],
-  ]) });
+]) });
+});
+
+composer.callbackQuery(/^admin:fundraising:(clear|edit):(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const [, action] = ctx.callbackQuery.data.split(":");
+  const p = ctx.session.profile;
+  if (!p) { await ctx.reply("Профиль не найден или уже удалён."); return; }
+  if (action === "clear") {
+    delete p.fundraisingPurposeText; delete p.fundraising_purpose_text;
+    delete p.fundraisingTargetAmount; delete p.fundraising_target_amount;
+    delete p.fundraisingTargetCurrency; delete p.fundraising_target_currency;
+    p.updatedAt = now(); audit(ctx, "clear_fundraising_purpose", typeof p.userId === "number" ? p.userId : undefined, "completed");
+    await ctx.reply("Цель очищена. Действие записано в журнал.");
+    return;
+  }
+  ctx.session.step = "admin_fundraising_text";
+  await ctx.reply("Введите новое описание цели (до 300 символов, без ссылок).", { reply_markup: { force_reply: true, input_field_placeholder: "Описание цели" } });
+});
+
+composer.on("message:text", async (ctx, next) => {
+  if (ctx.session.step !== "admin_fundraising_text") return next();
+  if (!(await requireAdmin(ctx))) return;
+  const value = sanitizePurpose(ctx.message.text);
+  if (!value) { await ctx.reply("Не удалось сохранить описание. Уберите ссылки и попробуйте ещё раз."); return; }
+  const p = ctx.session.profile;
+  if (!p) { ctx.session.step = undefined; await ctx.reply("Профиль не найден или уже удалён."); return; }
+  p.fundraisingPurposeText = value; p.fundraising_purpose_text = value;
+  p.updatedAt = now(); ctx.session.step = undefined;
+  audit(ctx, "edit_fundraising_purpose", typeof p.userId === "number" ? p.userId : undefined, "completed");
+  await ctx.reply("Цель обновлена. Действие записано в журнал.");
 });
 
 composer.callbackQuery(/^admin:(ban|delete):(-?\d+)$/, async (ctx) => {

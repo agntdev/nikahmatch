@@ -1,0 +1,29 @@
+[
+  {
+    "name": "A user can add a safe fundraising purpose to a profile",
+    "steps": [
+      { "send": { "callback": "profile:create" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Создадим профиль для серьёзного знакомства с намерением к никаху. Выберите язык:" } }] },
+      { "send": { "callback": "profile:lang:ru" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Здесь общаются уважительно и только с намерением к браку. Вам уже исполнилось 18 лет и вы согласны соблюдать эти правила?" } }] },
+      { "send": { "callback": "profile:consent:yes" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как к вам обращаться в профиле?" } }] },
+      { "send": { "text": "Амина" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Сколько вам лет? Профиль доступен с 18 лет." } }] },
+      { "send": { "text": "25" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как вы себя описываете?" } }] },
+      { "send": { "callback": "profile:gender:woman" }, "expect": [{ "method": "sendMessage", "payload": { "text": "В каком городе или регионе вы живёте?" } }] },
+      { "send": { "text": "Казань" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Каков ваш семейный статус?" } }] },
+      { "send": { "callback": "profile:marital:single" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Следуете определённой школе или мазхабу? Это необязательно." } }] },
+      { "send": { "callback": "profile:sect:skip" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как бы вы описали свою практику?" } }] },
+      { "send": { "callback": "profile:practice:growing" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Какое у вас образование или направление учёбы?" } }] },
+      { "send": { "text": "Университет" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Где вы учитесь или работаете?" } }] },
+      { "send": { "text": "Учительница" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Напишите несколько тёплых слов о себе и о том, кого надеетесь встретить." } }] },
+      { "send": { "text": "Люблю добрые разговоры и надеюсь встретить внимательного человека." }, "expect": [{ "method": "sendMessage", "payload": { "text": "Цель (сбор средств)\n\nЕсли у вас есть цель, добавьте короткое описание и сумму. Это необязательно." } }] },
+      { "send": { "callback": "profile:purpose:add" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Краткое описание цели\n\nДо 300 символов, без ссылок." } }] },
+      { "send": { "text": "Помощь семье и ремонт дома https://example.com" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Сумма (необязательно)\n\nВведите положительное число или пропустите этот шаг." } }] },
+      { "send": { "text": "25000" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Выберите валюту суммы:" } }] },
+      { "send": { "callback": "profile:purpose:currency:RUB" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "profile:confirm" }, "expect": [
+        { "method": "sendMessage", "payload": { "text": "Цель добавлена в профиль. Purpose added to your profile." } },
+        { "method": "sendMessage", "payload": { "text": "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены." } }
+      ] },
+      { "send": { "callback": "profile:view" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Ваш профиль\n\nАмина, 25 · Казань\nЛюблю добрые разговоры и надеюсь встретить внимательного человека.\n\nЦель (сбор средств):\nПомощь семье и ремонт дома\nСумма: 25000 RUB" } }] }
+    ]
+  }
+]

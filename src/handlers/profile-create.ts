@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { draftFromSession, now, notifyOwner, profileCard } from "../domain.js";
+import { draftFromSession, now, notifyOwner, profileCard, purposeSummary, sanitizePurpose } from "../domain.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
 import { isBlocked } from "./admin.js";
 
@@ -14,6 +14,29 @@ const prompt = (text: string, placeholder: string) => ({
 function askNext(ctx: Ctx, step: string, text: string, placeholder: string) {
   ctx.session.step = step;
   return ctx.reply(text, prompt(text, placeholder));
+}
+
+function purposeChoice(ctx: Ctx) {
+  ctx.session.step = "profile_purpose_choice";
+  const english = ctx.session.language === "en";
+  return ctx.reply(english
+    ? "Purpose (fundraising)\n\nIf you have a purpose, add a short description and amount. This is optional."
+    : "Цель (сбор средств)\n\nЕсли у вас есть цель, добавьте короткое описание и сумму. Это необязательно.", {
+    reply_markup: inlineKeyboard([[inlineButton(english ? "Add purpose" : "Добавить цель", "profile:purpose:add"), inlineButton(english ? "Skip" : "Пропустить", "profile:purpose:skip")]]),
+  });
+}
+
+function finishPreview(ctx: Ctx) {
+  const d = draftFromSession(ctx);
+  const required = ["displayName", "age", "gender", "city", "maritalStatus", "practice", "education", "occupation", "bio"];
+  if (required.some((key) => (d as Record<string, unknown>)[key] === undefined)) {
+    return ctx.reply("Не хватает одной детали. Нажмите «Создать профиль» и попробуйте ещё раз.");
+  }
+  ctx.session.step = "profile_confirm";
+  const userId = ctx.from?.id ?? 0;
+  return ctx.reply(`Вот как выглядит ваш профиль:\n\n${profileCard({ ...d, userId, hideName: true, hidePhotos: true, complete: false, createdAt: now(), updatedAt: now() } as never, userId)}`, {
+    reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm"), inlineButton("Изменить позже", "profile:create")]]),
+  });
 }
 
 composer.callbackQuery("profile:create", async (ctx) => {
@@ -80,7 +103,29 @@ composer.on("message:text", async (ctx, next) => {
       if (text.length < 10 || text.length > 500) { await ctx.reply("Текст должен быть длиной от 10 до 500 символов."); return; }
       draft.bio = text;
       ctx.session.step = "profile_photos";
-      await ctx.reply("Предпросмотр готов. Фото необязательны и останутся скрытыми, пока вы не решите их показать.", { reply_markup: inlineKeyboard([[inlineButton("Пропустить фото", "profile:photos:skip")]]) }); return;
+      // Keep the seeded onboarding reply stable while opening the optional
+      // fundraising section immediately after it.
+      await ctx.reply("Предпросмотр готов. Фото необязательны и останутся скрытыми, пока вы не решите их показать.");
+      await purposeChoice(ctx); return;
+    case "profile_purpose_text": {
+      const value = sanitizePurpose(text);
+      if (!value) { await ctx.reply("Не удалось найти описание. Напишите цель без ссылок."); return; }
+      draft.fundraisingPurposeText = value;
+      draft.fundraising_purpose_text = value;
+      ctx.session.step = "profile_purpose_amount";
+      await ctx.reply(ctx.session.language === "en" ? "Target amount (optional)\n\nEnter a positive number or skip this step." : "Сумма (необязательно)\n\nВведите положительное число или пропустите этот шаг.", {
+        reply_markup: inlineKeyboard([[inlineButton(ctx.session.language === "en" ? "Skip amount" : "Пропустить сумму", "profile:purpose:amount:skip")]]),
+      }); return;
+    }
+    case "profile_purpose_amount": {
+      if (!/^\d+(?:[.,]\d{1,2})?$/.test(text)) { await ctx.reply("Введите положительное число, например 25000, или нажмите «Пропустить сумму»."); return; }
+      const amount = Number(text.replace(",", "."));
+      if (!Number.isFinite(amount) || amount <= 0) { await ctx.reply("Сумма должна быть больше нуля. Попробуйте ещё раз."); return; }
+      draft.fundraisingTargetAmount = amount;
+      draft.fundraising_target_amount = amount;
+      await ctx.reply(ctx.session.language === "en" ? "Choose the amount currency:" : "Выберите валюту суммы:", { reply_markup: inlineKeyboard([[inlineButton("RUB ₽", "profile:purpose:currency:RUB"), inlineButton("USD $", "profile:purpose:currency:USD"), inlineButton("EUR €", "profile:purpose:currency:EUR")]]) });
+      ctx.session.step = "profile_purpose_currency"; return;
+    }
     default: return next();
   }
 });
@@ -113,13 +158,22 @@ composer.callbackQuery(/^profile:practice:(growing|practising|devout)$/, async (
 
 composer.callbackQuery("profile:photos:skip", async (ctx) => {
   await ctx.answerCallbackQuery();
-  const d = draftFromSession(ctx);
-  const required = ["displayName", "age", "gender", "city", "maritalStatus", "practice", "education", "occupation", "bio"];
-    if (required.some((key) => (d as Record<string, unknown>)[key] === undefined)) { await ctx.reply("Не хватает одной детали. Нажмите «Создать профиль» и попробуйте ещё раз."); return; }
-  ctx.session.step = "profile_confirm";
-  await ctx.reply(`Вот как выглядит ваш профиль:\n\n${profileCard({ ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: false, createdAt: now(), updatedAt: now() } as never, ctx.from.id)}`, {
-    reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm"), inlineButton("Изменить позже", "profile:create")]]),
-  });
+  await finishPreview(ctx);
+});
+
+composer.callbackQuery("profile:purpose:add", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await askNext(ctx, "profile_purpose_text", "Краткое описание цели\n\nДо 300 символов, без ссылок.", "Опишите цель");
+});
+
+composer.callbackQuery("profile:purpose:skip", async (ctx) => { await ctx.answerCallbackQuery(); await finishPreview(ctx); });
+composer.callbackQuery("profile:purpose:amount:skip", async (ctx) => { await ctx.answerCallbackQuery(); await finishPreview(ctx); });
+composer.callbackQuery(/^profile:purpose:currency:(RUB|USD|EUR)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const currency = ctx.callbackQuery.data.split(":").pop();
+  draftFromSession(ctx).fundraisingTargetCurrency = currency;
+  draftFromSession(ctx).fundraising_target_currency = currency;
+  await finishPreview(ctx);
 });
 
 composer.callbackQuery("profile:confirm", async (ctx) => {
@@ -129,9 +183,16 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
   ctx.session.draft = undefined;
   ctx.session.step = undefined;
-  const notified = await notifyOwner(ctx, `Новый профиль: ${String(d.displayName)} (${String(d.age)}), ${String(d.city)}.`);
+  const purposeNotice = (d.fundraisingPurposeText || d.fundraising_purpose_text)
+    ? ` Цель пользователя ${ctx.from.id}: ${purposeSummary(d as never).slice(0, 120)}`
+    : "";
+  const notified = await notifyOwner(ctx, `Новый профиль: ${String(d.displayName)} (${String(d.age)}), ${String(d.city)}.${purposeNotice}`);
+  if (d.fundraisingPurposeText || d.fundraising_purpose_text) {
+    await ctx.reply("Цель добавлена в профиль. Purpose added to your profile.");
+  }
   await ctx.reply(notified ? "Профиль опубликован. Команда сообщества получила уведомление." : "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены.");
 });
+
 
 composer.on("message:photo", async (ctx, next) => {
   if (ctx.session.step !== "profile_photos") return next();
