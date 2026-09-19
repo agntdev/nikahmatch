@@ -49,6 +49,10 @@ export function isSuperAdmin(ctx: Ctx): boolean {
   return isOwner(ctx);
 }
 
+export function isModerator(ctx: Ctx): boolean {
+  return ctx.session.adminState?.role === "moderator";
+}
+
 /** Account status is kept with the user's durable account/session record. */
 export function isBlocked(ctx: Ctx): boolean {
   return ctx.session.adminState?.banned === true || Boolean(ctx.session.adminState?.suspendedUntil);
@@ -81,16 +85,39 @@ function audit(ctx: Ctx, actionType: string, targetUserId: number | undefined, a
   ctx.session.adminActions = [...(ctx.session.adminActions ?? []), {
     actionType, targetUserId, adminId: ctx.from?.id ?? ctx.chat?.id ?? 0, timestamp: now(), reason, actionResult,
   }].slice(-100);
+  ctx.session.auditLog = [...(ctx.session.auditLog ?? []), {
+    actorId: ctx.from?.id ?? ctx.chat?.id ?? 0,
+    targetId: targetUserId,
+    action: actionType,
+    timestamp: now(),
+    reason,
+  }].slice(-200);
 }
 
 function roomKeyboard() {
   return inlineKeyboard([
     [inlineButton("Просмотреть жалобы", "admin:reports:0")],
     [inlineButton("Управление анкетами", "admin:pending:0")],
+    [inlineButton("Все профили", "admin:profiles:0")],
+    [inlineButton("Управление пользователями", "admin:users:0")],
+    [inlineButton("Журнал аудита", "admin:audit:view")],
     [inlineButton("Реакции в ленте", "admin:feed:reactions")],
     [inlineButton("Уведомления/Рассылка", "admin:broadcast")],
     [inlineButton("Выйти из админа", "admin:logout")],
   ]);
+}
+
+function profileStatus(profile: Record<string, unknown>): string {
+  if (profile.deleted === true) return "deleted";
+  if (profile.autoPublish === true && profile.visible === true) return "auto_published";
+  if (profile.visible === true || profile.moderationStatus === "approved") return "published";
+  if (profile.complete !== true) return "draft";
+  return "pending";
+}
+
+async function requireModeratorOrAdmin(ctx: Ctx): Promise<boolean> {
+  if (hasAdminRoomAccess(ctx) || isModerator(ctx) || isOwner(ctx)) { touchAdminRoom(ctx); return true; }
+  return requireAdmin(ctx);
 }
 
 async function openRoom(ctx: Ctx) {
@@ -115,18 +142,21 @@ async function requestPasscode(ctx: Ctx): Promise<void> {
 
 composer.callbackQuery("admin:entry", async (ctx) => {
   await ctx.answerCallbackQuery();
+  if (isModerator(ctx)) { await openRoom(ctx); return; }
   if (hasAdminRoomAccess(ctx)) { await openRoom(ctx); return; }
   await requestPasscode(ctx);
 });
 
 composer.callbackQuery("admin:room", async (ctx) => {
   await ctx.answerCallbackQuery();
+  if (isModerator(ctx)) { await openRoom(ctx); return; }
   if (hasAdminRoomAccess(ctx)) await openRoom(ctx);
   else await requestPasscode(ctx);
 });
 
 composer.callbackQuery("admin:open", async (ctx) => {
   await ctx.answerCallbackQuery();
+  if (isModerator(ctx)) { await openRoom(ctx); return; }
   if (hasAdminRoomAccess(ctx)) await openRoom(ctx);
   else await requestPasscode(ctx);
 });
@@ -182,6 +212,82 @@ composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx)
   ]) });
 });
 
+// Profile management is deliberately paginated even though the current session
+// adapter exposes only the active account. Production sessions are Redis/DO
+// backed; the explicit profile index is kept on the session record rather than
+// scanning storage keys.
+composer.callbackQuery(/^admin:profiles:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireModeratorOrAdmin(ctx))) return;
+  const profiles = (ctx.session.profiles ?? []).filter((p) => p.deleted !== true);
+  const page = Number(ctx.callbackQuery.data.split(":").pop());
+  const pageSize = 5;
+  const rows = profiles.slice(page * pageSize, (page + 1) * pageSize);
+  if (!rows.length) {
+    await ctx.reply("Профилей для управления пока нет.", { reply_markup: roomKeyboard() });
+    return;
+  }
+  const lines = rows.map((p, i) => `${page * pageSize + i + 1}. ${String(p.displayName ?? "Без имени")} · ${String(p.age ?? "—")} · ${String(p.city ?? "—")} · ${profileStatus(p)}`);
+  await ctx.reply(`Профили сообщества\n\n${lines.join("\n")}`, { reply_markup: inlineKeyboard([
+    ...rows.map((p) => [inlineButton(`Открыть · ${String(p.displayName ?? p.userId)}`, `admin:profile:${String(p.userId)}`)]),
+    [inlineButton("Предыдущая", `admin:profiles:${Math.max(0, page - 1)}`), inlineButton("Следующая", `admin:profiles:${page + 1}`)],
+    [inlineButton("⬅️ В комнату админа", "admin:room")],
+  ]) });
+});
+
+composer.callbackQuery(/^admin:users:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const profile = ctx.session.profile;
+  if (!profile) { await ctx.reply("Пользователей для управления пока нет.", { reply_markup: roomKeyboard() }); return; }
+  const role = ctx.session.adminState?.role ?? "user";
+  await ctx.reply(`Пользователь ${String(profile.userId)} · ${profile.displayName}\nРоль: ${role}`, { reply_markup: inlineKeyboard([
+    [inlineButton(role === "moderator" ? "Отозвать модератора" : "Назначить модератором", `admin:moderator:${role === "moderator" ? "revoke" : "assign"}:${profile.userId}`)],
+    [inlineButton("⬅️ В комнату админа", "admin:room")],
+  ]) });
+});
+
+composer.callbackQuery("admin:audit:view", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireModeratorOrAdmin(ctx))) return;
+  const entries = ctx.session.auditLog ?? [];
+  if (!entries.length) { await ctx.reply("Журнал аудита пока пуст.", { reply_markup: roomKeyboard() }); return; }
+  const text = entries.slice(-10).reverse().map((entry) => `${entry.action} · цель ${entry.targetId ?? "—"} · ${entry.timestamp}`).join("\n");
+  await ctx.reply(`Последние действия\n\n${text}`, { reply_markup: inlineKeyboard([[inlineButton("⬅️ В комнату админа", "admin:room")]]) });
+});
+
+composer.callbackQuery(/^admin:moderator:(assign|revoke):(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const [, action, targetRaw] = ctx.callbackQuery.data.split(":");
+  const target = Number(targetRaw);
+  const current = ctx.session.adminState ?? {};
+  ctx.session.adminState = { ...current, role: action === "assign" ? "moderator" : "user" };
+  audit(ctx, action === "assign" ? "assign_moderator" : "revoke_moderator", target, "completed");
+  try {
+    await ctx.api.sendMessage(target, action === "assign"
+      ? "Вам назначена роль модератора. Вы можете проверять анкеты, публиковать и скрывать профили, управлять фото и просматривать журнал модерации."
+      : "Роль модератора отозвана. Доступ к инструментам модерации закрыт.");
+  } catch { /* The user may not have started the bot; the role is still recorded. */ }
+  await ctx.reply(action === "assign" ? "Модератор назначен, уведомление отправлено.": "Роль модератора отозвана.", { reply_markup: roomKeyboard() });
+});
+
+composer.callbackQuery(/^admin:profile-action:(publish|unpublish|toggle-auto|delete):(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const action = ctx.callbackQuery.data.split(":")[1];
+  const target = Number(ctx.callbackQuery.data.split(":")[2]);
+  if (action === "delete" ? !(await requireAdmin(ctx)) : !(await requireModeratorOrAdmin(ctx))) return;
+  const profile = ctx.session.profile;
+  if (!profile || profile.userId !== target) { await ctx.reply("Профиль не найден или уже удалён."); return; }
+  if (action === "delete") { profile.deleted = true; profile.visible = false; }
+  if (action === "publish") { profile.visible = true; profile.moderationStatus = "approved"; profile.status = isModerator(ctx) ? "published" : "published"; profile.publicationAction = isModerator(ctx) ? "moderator_published" : "admin_published"; }
+  if (action === "unpublish") { profile.visible = false; profile.moderationStatus = "pending"; profile.status = "unpublished"; profile.publicationAction = "unpublished"; }
+  if (action === "toggle-auto") profile.autoPublish = profile.autoPublish !== true;
+  profile.updatedAt = now();
+  audit(ctx, action, target, "completed");
+  await ctx.reply(action === "publish" ? "Профиль опубликован." : action === "unpublish" ? "Профиль снят с публикации." : action === "delete" ? "Профиль удалён." : `Автопубликация ${profile.autoPublish ? "включена" : "выключена"}.`, { reply_markup: roomKeyboard() });
+});
+
 composer.callbackQuery("admin:statistics", async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!(await requireAdmin(ctx))) return;
@@ -218,7 +324,7 @@ composer.command("admin_new", async (ctx) => {
 });
 
 composer.callbackQuery("admin:queue", async (ctx) => {
-  await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
+  await ctx.answerCallbackQuery(); if (!(await requireModeratorOrAdmin(ctx))) return;
   const open = (ctx.session.reports ?? []).filter((r) => r.status === "open");
   const p = ctx.session.profile;
   if (!open.length && !p) { await ctx.reply("Очередь модерации пуста."); return; }
@@ -231,7 +337,7 @@ composer.callbackQuery("admin:queue", async (ctx) => {
 });
 
 composer.callbackQuery(/^admin:profile:(-?\d+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
+  await ctx.answerCallbackQuery(); if (!(await requireModeratorOrAdmin(ctx))) return;
   const p = ctx.session.profile;
   if (!p || String(p.userId) !== ctx.callbackQuery.data.split(":").pop()) { await ctx.reply("Профиль не найден или уже удалён."); return; }
   const purpose = p.fundraisingPurposeText ?? p.fundraising_purpose_text;
@@ -239,6 +345,8 @@ composer.callbackQuery(/^admin:profile:(-?\d+)$/, async (ctx) => {
   const targetCurrency = p.fundraisingTargetCurrency ?? p.fundraising_target_currency;
   const fundraising = purpose ? `\nЦель (сбор средств): ${purpose}${targetAmount !== undefined && targetCurrency ? `\nСумма: ${targetAmount} ${targetCurrency}` : ""}` : "\nЦель (сбор средств): не указана";
   await ctx.reply(`Профиль для проверки\n\nИмя: ${p.displayName}\nВозраст: ${p.age}\nПол: ${p.gender}\nРегион: ${p.city}\nСтатус: ${p.maritalStatus}\nПрактика: ${p.practice}\nОбразование: ${p.education}\nЗанятие: ${p.occupation}\nО себе: ${p.bio}${fundraising}\nКонтакты: не запрашивались`, { reply_markup: inlineKeyboard([
+    [inlineButton(`Автопубликация: ${p.autoPublish ? "включена" : "выключена"}`, `admin:profile-action:toggle-auto:${p.userId}`)],
+    [inlineButton("Опубликовать", `admin:profile-action:publish:${p.userId}`), inlineButton("Снять с публикации", `admin:profile-action:unpublish:${p.userId}`)],
     [inlineButton("Изменить цель", `admin:fundraising:edit:${p.userId}`), inlineButton("Очистить цель", `admin:fundraising:clear:${p.userId}`)],
     [inlineButton("✅ Одобрить", `admin:approve:${p.userId}`), inlineButton("⚠️ Предупредить", `admin:warn:${p.userId}`)],
     [inlineButton("⏸ Приостановить", `admin:suspend:${p.userId}`), inlineButton("🚫 Заблокировать", `admin:ban:${p.userId}`)],
@@ -310,7 +418,7 @@ composer.on("message:text", async (ctx, next) => {
 });
 
 composer.callbackQuery(/^admin:(approve|warn|suspend|note):(-?\d+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
+  await ctx.answerCallbackQuery(); if (!(await requireModeratorOrAdmin(ctx))) return;
   const [, action, target] = ctx.callbackQuery.data.split(":"); const id = Number(target);
   if (action === "approve") { if (ctx.session.profile && ctx.session.profile.userId === id) ctx.session.profile.moderationStatus = "approved"; audit(ctx, action, id, "completed"); await ctx.reply("Профиль одобрен и теперь виден в поиске."); return; }
   if (action === "note") { audit(ctx, action, id, "completed", "Заметка добавлена в журнал"); await ctx.reply("Заметка добавлена в журнал модерации."); return; }
@@ -386,7 +494,7 @@ composer.callbackQuery(/^admin:report:action:(-?\d+)$/, async (ctx) => {
 
 composer.callbackQuery(/^admin:reject:(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery();
-  if (!(await requireAdmin(ctx))) return;
+  if (!(await requireModeratorOrAdmin(ctx))) return;
   const target = ctx.callbackQuery.data.split(":").pop();
   ctx.session.step = `admin_reason:reject:${target}`;
   await ctx.reply("Напишите причину отклонения профиля.", { reply_markup: { force_reply: true, input_field_placeholder: "Причина отклонения" } });

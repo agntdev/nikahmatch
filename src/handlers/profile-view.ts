@@ -21,6 +21,7 @@ function editKeyboard() {
   return inlineKeyboard([
     [inlineButton("Цель (сбор средств)", "profile:edit:purpose")],
     [inlineButton("Изменить имя", "profile:edit:name"), inlineButton("Изменить описание", "profile:edit:bio")],
+    [inlineButton("Автопубликация", "profile:edit:auto")],
     [inlineButton("⬅️ К профилю", "profile:view")],
   ]);
 }
@@ -47,6 +48,19 @@ composer.callbackQuery("profile:edit", async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!profileFromSession(ctx)) { await ctx.reply("Сначала создайте профиль."); return; }
   await ctx.reply("Что хотите изменить?", { reply_markup: editKeyboard() });
+});
+
+composer.callbackQuery("profile:edit:auto", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const p = profileFromSession(ctx);
+  if (!p) { await ctx.reply("Сначала создайте профиль."); return; }
+  p.autoPublish = p.autoPublish !== true;
+  p.visible = p.autoPublish;
+  p.moderationStatus = p.autoPublish ? "approved" : "pending";
+  p.status = p.autoPublish ? "auto_published" : "pending";
+  p.publicationAction = p.autoPublish ? "auto_published" : undefined;
+  p.updatedAt = now();
+  await ctx.reply(p.autoPublish ? "Автопубликация включена — профиль виден сразу." : "Автопубликация выключена — профиль будет проверяться командой.", { reply_markup: editKeyboard() });
 });
 
 composer.callbackQuery("profile:edit:purpose", async (ctx) => {

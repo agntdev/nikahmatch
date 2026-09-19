@@ -1,0 +1,23 @@
+[
+  {
+    "name": "explicit auto publication makes a completed profile immediately visible",
+    "steps": [
+      { "send": { "callback": "profile:create" }, "expect": [] },
+      { "send": { "callback": "profile:lang:ru" }, "expect": [] },
+      { "send": { "callback": "profile:consent:yes" }, "expect": [] },
+      { "send": { "text": "Амина" }, "expect": [] },
+      { "send": { "text": "25" }, "expect": [] },
+      { "send": { "callback": "profile:gender:woman" }, "expect": [] },
+      { "send": { "text": "Казань" }, "expect": [] },
+      { "send": { "callback": "profile:marital:single" }, "expect": [] },
+      { "send": { "callback": "profile:sect:skip" }, "expect": [] },
+      { "send": { "callback": "profile:practice:growing" }, "expect": [] },
+      { "send": { "text": "Университет" }, "expect": [] },
+      { "send": { "text": "Учительница" }, "expect": [] },
+      { "send": { "text": "Люблю добрые разговоры и надеюсь встретить внимательного человека." }, "expect": [] },
+      { "send": { "callback": "profile:photos:skip" }, "expect": [] },
+      { "send": { "callback": "profile:auto:yes" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль будет опубликован сразу после подтверждения." } }] },
+      { "send": { "callback": "profile:confirm" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль опубликован сразу. Уведомления владельцу пока не настроены." } }] }
+    ]
+  }
+]
