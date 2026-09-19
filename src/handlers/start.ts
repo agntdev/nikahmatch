@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, mainMenuItems } from "../toolkit/index.js";
 import { en, ru, text } from "../i18n.js";
+import { editTextOrReply } from "../domain.js";
 
 // The /start handler renders the bot's MAIN MENU — the primary way users operate
 // a button-first bot. A feature adds its own button by calling
@@ -25,7 +26,7 @@ composer.command("start", async (ctx) => {
 // "Back to menu" — re-render the main menu in place from any sub-view.
 composer.callbackQuery("menu:main", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.editMessageText(text(ctx, ru.welcome, en.welcome), { reply_markup: menu(ctx) });
+  await editTextOrReply(ctx, text(ctx, ru.welcome, en.welcome), menu(ctx));
 });
 
 export default composer;
