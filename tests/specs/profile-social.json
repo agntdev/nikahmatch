@@ -1,0 +1,38 @@
+[
+  {
+    "name": "profile shows the Russian social screens",
+    "steps": [
+      { "send": { "callback": "profile:view" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Вы ещё не создали профиль. Это займёт всего несколько минут." } }] }
+    ]
+  },
+  {
+    "name": "favorites can be added and removed",
+    "steps": [
+      { "send": { "callback": "favorite:add:22" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета добавлена в избранное." } }] },
+      { "send": { "callback": "profile:favorites" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Ваши избранные анкеты:" } }] },
+      { "send": { "callback": "favorite:remove:22" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета убрана из избранного." } }] }
+    ]
+  },
+  {
+    "name": "blacklist blocks a profile and can be cleared",
+    "steps": [
+      { "send": { "callback": "blacklist:add:23" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль скрыт. Этот пользователь больше не появится у вас в ленте и не сможет начать с вами чат." } }] },
+      { "send": { "callback": "profile:open:23" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Этот профиль скрыт для вас." } }] },
+      { "send": { "callback": "blacklist:remove:23" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль снова доступен." } }] }
+    ]
+  },
+  {
+    "name": "empty visitors and photo screens invite the next action",
+    "steps": [
+      { "send": { "callback": "profile:visitors" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Гостей пока нет — когда кто-то откроет вашу анкету, вы увидите его здесь." } }] },
+      { "send": { "callback": "profile:photos" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Фото пока нет — добавьте до 10 снимков. Они останутся на модерации и будут скрыты до проверки." } }] }
+    ]
+  },
+  {
+    "name": "opening a profile records a visitor",
+    "steps": [
+      { "send": { "callback": "profile:open:24" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль участника\n\nПолные имя и фото откроются только после взаимного согласия." } }] },
+      { "send": { "callback": "profile:visitors" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Недавние гости:" } }] }
+    ]
+  }
+]

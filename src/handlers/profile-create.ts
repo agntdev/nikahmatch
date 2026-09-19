@@ -181,6 +181,17 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   const d = draftFromSession(ctx);
   const timestamp = now();
   ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
+  const draftPhotos = Array.isArray(d.photos) ? d.photos.filter((value): value is string => typeof value === "string") : [];
+  if (draftPhotos.length) {
+    ctx.session.profilePhotos = draftPhotos.slice(0, 10).map((fileId, index) => ({
+      photoId: `${ctx.from.id}-${timestamp}-${index}`,
+      ownerId: ctx.from.id,
+      fileId,
+      uploadedAt: timestamp,
+      isPrimary: index === 0,
+      moderationStatus: "pending",
+    }));
+  }
   ctx.session.draft = undefined;
   ctx.session.step = undefined;
   const purposeNotice = (d.fundraisingPurposeText || d.fundraising_purpose_text)

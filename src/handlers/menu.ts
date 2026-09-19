@@ -116,6 +116,11 @@ composer.callbackQuery("menu:profile:delete:yes", async (ctx) => {
   ctx.session.viewed = undefined;
   ctx.session.skipped = undefined;
   ctx.session.reports = undefined;
+  ctx.session.favorites = undefined;
+  ctx.session.blacklist = undefined;
+  ctx.session.visitors = undefined;
+  ctx.session.profilePhotos = undefined;
+  ctx.session.photoRatings = undefined;
   await notifyOwner(ctx, `Участник удалил анкету (${ctx.from.id}).`);
   await ctx.reply("Анкета и связанные данные удалены. Вы сможете создать новую анкету в любое время.", {
     reply_markup: inlineKeyboard([[inlineButton("В меню", "menu:open")]]),

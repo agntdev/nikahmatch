@@ -64,6 +64,20 @@ export interface Session {
   feedPostDays?: Record<string, number>;
   feedCursor?: number;
   feedReports?: Array<{ postId: string; reporterUserId: number; createdAt: string; status: "open" | "dismissed" | "removed"; likesCount?: number; dislikesCount?: number }>;
+  /** Durable social records. In production this session is backed by Redis or a Worker DO. */
+  favorites?: Array<{ userId: number; addedAt: string }>;
+  blacklist?: Array<{ userId: number; blockedAt: string }>;
+  visitors?: Array<{ viewerId: number; viewedAt: string }>;
+  profilePhotos?: Array<{
+    photoId: string;
+    ownerId: number;
+    fileId: string;
+    uploadedAt: string;
+    isPrimary: boolean;
+    moderationStatus: "pending" | "ok" | "removed";
+  }>;
+  photoRatings?: Array<{ photoId: string; raterId: number; score: number; ratedAt: string }>;
+  socialNotifications?: { favorite: boolean; rating: boolean };
 }
 
 export type Ctx = BotContext<Session>;

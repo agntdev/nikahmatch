@@ -14,6 +14,7 @@ export type Profile = {
   education: string;
   occupation: string;
   bio: string;
+  photos?: string[];
   fullName?: string;
   hideName: boolean;
   hidePhotos: boolean;
