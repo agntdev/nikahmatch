@@ -46,18 +46,17 @@ export interface Session {
     createdAt: string;
     visibility: "public" | "protected";
     likesCount: number;
-    ratingSum: number;
-    ratingCount: number;
+    dislikesCount: number;
   }>;
-  feedRatings?: Array<{
+  /** One row per (postId, raterUserId), equivalent to post_reactions. */
+  feedReactions?: Array<{
     postId: string;
-    raterUserId: number;
-    rating?: number;
-    liked: boolean;
+    userId: number;
+    reaction: "like" | "dislike";
     updatedAt: string;
   }>;
   feedPostDays?: Record<string, number>;
-  feedReports?: Array<{ postId: string; reporterUserId: number; createdAt: string; status: "open" | "dismissed" | "removed" }>;
+  feedReports?: Array<{ postId: string; reporterUserId: number; createdAt: string; status: "open" | "dismissed" | "removed"; likesCount?: number; dislikesCount?: number }>;
 }
 
 export type Ctx = BotContext<Session>;

@@ -31,5 +31,16 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Feed reaction route handles a missing post safely",
+    "steps": [
+      {
+        "send": { "callback": "feed:react:post-1:like" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Эта запись больше недоступна." } }
+        ]
+      }
+    ]
   }
 ]

@@ -46,6 +46,30 @@ export function createBot<S extends object>(
   opts: CreateBotOptions<S>,
 ): Bot<BotContext<S>> {
   const bot = new Bot<BotContext<S>>(token);
+  // Telegram can deliver a callback after its acknowledgement window, and an
+  // inline button may be attached to a photo rather than a text message. Both
+  // are normal races, not user-visible failures. Keep them out of the global
+  // error boundary and recover an edit as a fresh message when necessary.
+  bot.api.config.use(async (prev, method, payload) => {
+    try {
+      return await prev(method, payload);
+    } catch (error) {
+      const message = String(error);
+      if (method === "answerCallbackQuery" && /(too old|timeout|invalid)/i.test(message)) {
+        return { ok: true, result: true } as never;
+      }
+      if (method === "editMessageText" && /there is no text in the message to edit/i.test(message)) {
+        const p = payload as Record<string, unknown>;
+        if (typeof p.chat_id === "number" || typeof p.chat_id === "string") {
+          const fallback = { ...p };
+          delete fallback.message_id;
+          delete fallback.inline_message_id;
+          return prev("sendMessage", fallback as never);
+        }
+      }
+      throw error;
+    }
+  });
   bot.use(
     session<S, BotContext<S>>({
       initial: opts.initial,
