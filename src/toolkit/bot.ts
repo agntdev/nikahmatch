@@ -77,6 +77,21 @@ export function createBot<S extends object>(
       storage: resolveSessionStorage<S>(opts.storage),
     }),
   );
+  // Callback queries can arrive after Telegram's short acknowledgement window
+  // (for example after a user resumes an old card). Treat that race as a
+  // completed acknowledgement so it never reaches the global error boundary.
+  bot.use(async (ctx, next) => {
+    const original = ctx.answerCallbackQuery.bind(ctx);
+    ctx.answerCallbackQuery = (async (...args: Parameters<typeof ctx.answerCallbackQuery>) => {
+      try {
+        return await original(...args);
+      } catch (error) {
+        if (/(too old|timeout|invalid|expired)/i.test(String(error))) return true;
+        throw error;
+      }
+    }) as typeof ctx.answerCallbackQuery;
+    await next();
+  });
   // Active-user reporting (agnt-api migration 00069). No-op unless the platform
   // injected BOT_TELEMETRY_* at deploy — so dev, the test harness, and old bots
   // are byte-for-byte unchanged. Records salted user hashes only; best-effort.

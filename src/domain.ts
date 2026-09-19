@@ -45,6 +45,15 @@ let clock = (): Date => new Date();
 export const now = (): string => clock().toISOString();
 export const setNow = (next: () => Date): void => { clock = next; };
 
+/** A stale callback is a normal Telegram race; never let it break the action. */
+export async function answerCallbackSafely(ctx: Ctx): Promise<void> {
+  try {
+    await ctx.answerCallbackQuery();
+  } catch (error) {
+    if (!/(too old|timeout|invalid|expired)/i.test(String(error))) throw error;
+  }
+}
+
 /**
  * Inline buttons can be attached to text messages or media messages. Telegram
  * only permits editMessageText for the former, so menu-like callbacks must
