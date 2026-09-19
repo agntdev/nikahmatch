@@ -7,7 +7,31 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "👋 Добро пожаловать в «Никаḥ: знакомство». Выберите действие ниже." }
+            "payload": {
+              "text": "👋 Добро пожаловать в «Никаḥ: знакомство». Выберите действие ниже.",
+              "reply_markup": {
+                "inline_keyboard": [
+                  [
+                    { "text": "Меню", "callback_data": "menu:open" },
+                    { "text": "📝 Создать профиль", "callback_data": "profile:create" }
+                  ],
+                  [
+                    { "text": "🔎 Найти знакомство", "callback_data": "browse:start" },
+                    { "text": "👤 Мой профиль", "callback_data": "profile:view" }
+                  ],
+                  [
+                    { "text": "⚙️ Фильтры", "callback_data": "browse:filters" },
+                    { "text": "🛡️ Пожаловаться", "callback_data": "profile:report" }
+                  ],
+                  [
+                    { "text": "🔐 Комната админа", "callback_data": "admin:entry" }
+                  ],
+                  [
+                    { "text": "❓ Help", "callback_data": "menu:help" }
+                  ]
+                ]
+              }
+            }
           }
         ]
       }

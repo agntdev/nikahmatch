@@ -1,6 +1,6 @@
 [
   {
-    "name": "Russian is the default language",
+    "name": "Direct language settings remain available",
     "steps": [
       {
         "send": { "callback": "settings:open" },
@@ -9,7 +9,7 @@
     ]
   },
   {
-    "name": "English can be selected and saved",
+    "name": "English can still be selected directly",
     "steps": [
       {
         "send": { "callback": "settings:lang:en" },

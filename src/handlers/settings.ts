@@ -1,9 +1,10 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { en, ru, text } from "../i18n.js";
-import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
 
-registerMainMenuItem({ label: "⚙️ Настройки", data: "settings:open", order: 60 });
+// Settings remain available to existing direct/admin entry points, but are not
+// advertised in the user-facing main menu.
 const composer = new Composer<Ctx>();
 
 composer.callbackQuery("settings:open", async (ctx) => {
