@@ -1,7 +1,36 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { now } from "../domain.js";
-import { adminChatId, inlineButton, inlineKeyboard, isOwner } from "../toolkit/index.js";
+import { adminChatId, inlineButton, inlineKeyboard, isOwner, registerMainMenuItem } from "../toolkit/index.js";
+
+// Configuration stores only the SHA-256 digest. The token itself never appears
+// in source, logs, or user-visible messages.
+const ADMIN_PASSCODE_HASH = "dc47efc36355b16845aa4648f83dcd57d438fffe993c55c2da9b4b78bbfeba32";
+const ADMIN_SESSION_MINUTES = 60;
+
+registerMainMenuItem({ label: "🔐 Комната админа", data: "admin:entry", order: 70 });
+
+async function digest(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const result = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(result), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function authLog(ctx: Ctx, result: "успешно" | "отказано" | "выход"): void {
+  // Deliberately omit the submitted code from this audit line.
+  console.info(`[admin-auth] timestamp=${now()} user_id=${ctx.from?.id ?? ctx.chat?.id ?? "unknown"} result=${result}`);
+}
+
+function hasAdminRoomAccess(ctx: Ctx): boolean {
+  const lastActivity = ctx.session.adminRoom?.lastActivity;
+  if (!lastActivity) return false;
+  const elapsed = Date.parse(now()) - Date.parse(lastActivity);
+  return Number.isFinite(elapsed) && elapsed >= 0 && elapsed <= ADMIN_SESSION_MINUTES * 60_000;
+}
+
+function touchAdminRoom(ctx: Ctx): void {
+  ctx.session.adminRoom = { lastActivity: now() };
+}
 
 /** Admin IDs are deploy-time configuration. They are never claimed in chat. */
 function config(ctx: Ctx): string[] {
@@ -13,7 +42,7 @@ function config(ctx: Ctx): string[] {
 export function isAdmin(ctx: Ctx): boolean {
   const ids = config(ctx);
   const caller = String(ctx.from?.id ?? ctx.chat?.id ?? "");
-  return (ids.length > 0 && ids.includes(caller)) || isOwner(ctx);
+  return hasAdminRoomAccess(ctx) || (ids.length > 0 && ids.includes(caller)) || isOwner(ctx);
 }
 
 export function isSuperAdmin(ctx: Ctx): boolean {
@@ -38,7 +67,10 @@ export async function notifyAdmins(ctx: Ctx, message: string): Promise<boolean> 
 }
 
 async function requireAdmin(ctx: Ctx): Promise<boolean> {
-  if (isAdmin(ctx)) return true;
+  if (hasAdminRoomAccess(ctx)) {
+    touchAdminRoom(ctx);
+    return true;
+  }
   const text = config(ctx).length === 0 ? "Доступ администратора пока не настроен." : "Этот раздел доступен только администраторам.";
   try { await ctx.answerCallbackQuery({ text, show_alert: true }); } catch { /* command update */ }
   await ctx.reply(text);
@@ -53,16 +85,17 @@ function audit(ctx: Ctx, actionType: string, targetUserId: number | undefined, a
 
 function roomKeyboard() {
   return inlineKeyboard([
-    [inlineButton("⏳ Pending profiles", "admin:pending:0"), inlineButton("📋 Reports", "admin:reports:0")],
-    [inlineButton("✅ Active profiles", "admin:active:0"), inlineButton("👥 Users", "admin:users:0")],
-    [inlineButton("📣 Broadcast", "admin:broadcast"), inlineButton("📊 Statistics", "admin:statistics")],
-    [inlineButton("⚙️ Settings", "admin:settings"), inlineButton("🧾 Audit log", "admin:audit:0")],
-    [inlineButton("⬅️ В меню", "menu:main")],
+    [inlineButton("Просмотреть жалобы", "admin:reports:0")],
+    [inlineButton("Управление анкетами", "admin:pending:0")],
+    [inlineButton("Уведомления/Рассылка", "admin:broadcast")],
+    [inlineButton("Настройки модерации", "admin:settings")],
+    [inlineButton("Выйти из админа", "admin:logout")],
   ]);
 }
 
 async function openRoom(ctx: Ctx) {
-  await ctx.reply("Admin Room открыт. Выберите раздел:", { reply_markup: roomKeyboard() });
+  touchAdminRoom(ctx);
+  await ctx.reply("Комната админа открыта. Выберите раздел:", { reply_markup: roomKeyboard() });
 }
 
 const composer = new Composer<Ctx>();
@@ -70,19 +103,54 @@ const composer = new Composer<Ctx>();
 export { config as adminIds };
 
 composer.command("admin", async (ctx) => {
-  if (!(await requireAdmin(ctx))) return;
-  await openRoom(ctx);
+  if (hasAdminRoomAccess(ctx)) { await openRoom(ctx); return; }
+  ctx.session.step = "admin_passcode";
+  await ctx.reply("Введите числовой код доступа к комнате админа.", { reply_markup: { force_reply: true, input_field_placeholder: "Код доступа" } });
 });
 
-composer.callbackQuery("admin:open", async (ctx) => {
+async function requestPasscode(ctx: Ctx): Promise<void> {
+  ctx.session.step = "admin_passcode";
+  await ctx.reply("Введите числовой код доступа к комнате админа.", { reply_markup: { force_reply: true, input_field_placeholder: "Код доступа" } });
+}
+
+composer.callbackQuery("admin:entry", async (ctx) => {
   await ctx.answerCallbackQuery();
-  if (!(await requireAdmin(ctx))) return;
-  await openRoom(ctx);
+  if (hasAdminRoomAccess(ctx)) { await openRoom(ctx); return; }
+  await requestPasscode(ctx);
 });
 
 composer.callbackQuery("admin:room", async (ctx) => {
   await ctx.answerCallbackQuery();
-  if (await requireAdmin(ctx)) await openRoom(ctx);
+  if (hasAdminRoomAccess(ctx)) await openRoom(ctx);
+  else await requestPasscode(ctx);
+});
+
+composer.callbackQuery("admin:open", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (hasAdminRoomAccess(ctx)) await openRoom(ctx);
+  else await requestPasscode(ctx);
+});
+
+composer.callbackQuery("admin:logout", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  ctx.session.adminRoom = undefined;
+  ctx.session.step = undefined;
+  authLog(ctx, "выход");
+  await ctx.reply("Вы вышли из комнаты админа.", { reply_markup: inlineKeyboard([[inlineButton("В меню", "menu:main")]]) });
+});
+
+composer.on("message:text", async (ctx, next) => {
+  if (ctx.session.step !== "admin_passcode") return next();
+  const supplied = ctx.message.text.trim();
+  const valid = /^\d+$/.test(supplied) && (await digest(supplied)) === ADMIN_PASSCODE_HASH;
+  if (!valid) {
+    authLog(ctx, "отказано");
+    await ctx.reply("Код не подошёл. Введите числовой код ещё раз.", { reply_markup: { force_reply: true, input_field_placeholder: "Код доступа" } });
+    return;
+  }
+  authLog(ctx, "успешно");
+  ctx.session.step = undefined;
+  await openRoom(ctx);
 });
 
 composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx) => {
@@ -98,7 +166,7 @@ composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx)
     const pageEntry = entries.slice().reverse()[n];
     await ctx.reply(`Журнал действий\n\nАдминистратор: ${pageEntry.adminId}\nДействие: ${pageEntry.actionType}\nЦель: ${pageEntry.targetUserId ?? "не указана"}\nВремя: ${pageEntry.timestamp}\nПричина: ${pageEntry.reason ?? "не указана"}`, { reply_markup: inlineKeyboard([
       [inlineButton("Предыдущая", `admin:audit:${Math.max(0, n - 1)}`), inlineButton("Следующая", `admin:audit:${n + 1}`)],
-      [inlineButton("⬅️ В Admin Room", "admin:room")],
+      [inlineButton("⬅️ В комнату админа", "admin:room")],
     ]) });
     return;
   }
@@ -110,7 +178,7 @@ composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx)
   await ctx.reply(`${label}\n\n1. Профиль ${profile.userId} · ${profile.displayName}`, { reply_markup: inlineKeyboard([
     [inlineButton("Открыть", `admin:profile:${profile.userId}`)],
     [inlineButton("Предыдущая", `admin:${section}:${Math.max(0, n - 1)}`), inlineButton("Следующая", `admin:${section}:${n + 1}`)],
-    [inlineButton("⬅️ В Admin Room", "admin:room")],
+    [inlineButton("⬅️ В комнату админа", "admin:room")],
   ]) });
 });
 
@@ -121,13 +189,13 @@ composer.callbackQuery("admin:statistics", async (ctx) => {
   const reports = ctx.session.reports ?? [];
   const actions = ctx.session.adminActions ?? [];
   const status = String((p as Record<string, unknown> | undefined)?.moderationStatus ?? "pending");
-  await ctx.reply(`Статистика\n\nПользователей: ${p ? 1 : 0}\nАктивных профилей: ${p && !p.deleted && status === "approved" ? 1 : 0}\nОжидающих профилей: ${p && !p.deleted && status !== "approved" ? 1 : 0}\nЖалоб: ${reports.length}\nСовпадений: ${(ctx.session.matches ?? []).length}\nДействий модерации: ${actions.length}`, { reply_markup: inlineKeyboard([[inlineButton("⬅️ В Admin Room", "admin:room")]]) });
+  await ctx.reply(`Статистика\n\nПользователей: ${p ? 1 : 0}\nАктивных профилей: ${p && !p.deleted && status === "approved" ? 1 : 0}\nОжидающих профилей: ${p && !p.deleted && status !== "approved" ? 1 : 0}\nЖалоб: ${reports.length}\nСовпадений: ${(ctx.session.matches ?? []).length}\nДействий модерации: ${actions.length}`, { reply_markup: inlineKeyboard([[inlineButton("⬅️ В комнату админа", "admin:room")]]) });
 });
 
 composer.callbackQuery("admin:settings", async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!(await requireAdmin(ctx))) return;
-  await ctx.reply(isSuperAdmin(ctx) ? "Настройки Admin Room\n\nВы — супер-администратор. Список администраторов задаётся в защищённой конфигурации проекта." : "Настройки Admin Room доступны только супер-администратору.", { reply_markup: inlineKeyboard([[inlineButton("⬅️ В Admin Room", "admin:room")]]) });
+  await ctx.reply(isSuperAdmin(ctx) ? "Настройки модерации\n\nВы — главный администратор. Список администраторов задаётся в защищённой конфигурации проекта." : "Настройки модерации доступны только главному администратору.", { reply_markup: inlineKeyboard([[inlineButton("⬅️ В комнату админа", "admin:room")]]) });
 });
 
 composer.callbackQuery("admin:dashboard", async (ctx) => {
@@ -255,7 +323,7 @@ composer.callbackQuery(/^admin:report:(\d+)$/, async (ctx) => {
   await ctx.reply(`Жалоба\n\nОтправитель: ${report.reporterId}\nПрофиль: ${report.targetId}\nПричина: ${report.reason}\nВремя: ${report.createdAt}\nСтатус: ${report.status}`, { reply_markup: inlineKeyboard([
     [inlineButton("Открыть профиль", `admin:profile:${report.targetId}`)],
     [inlineButton("Закрыть жалобу", `admin:report:dismiss:${report.id}`), inlineButton("Принять меры", `admin:report:action:${report.targetId}`)],
-    [inlineButton("⬅️ В Admin Room", "admin:room")],
+    [inlineButton("⬅️ В комнату админа", "admin:room")],
   ]) });
 });
 

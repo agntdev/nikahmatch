@@ -35,6 +35,9 @@ export interface Session {
     note?: string;
   };
   broadcastDraft?: { text?: string; confirmed?: boolean };
+  adminRoom?: {
+    lastActivity: string;
+  };
 }
 
 export type Ctx = BotContext<Session>;

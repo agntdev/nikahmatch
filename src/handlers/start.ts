@@ -2,7 +2,6 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, mainMenuItems } from "../toolkit/index.js";
 import { en, ru, text } from "../i18n.js";
-import { isAdmin } from "./admin.js";
 
 // The /start handler renders the bot's MAIN MENU — the primary way users operate
 // a button-first bot. A feature adds its own button by calling
@@ -15,7 +14,6 @@ function menu(ctx: Ctx) {
   const items = mainMenuItems().filter((item) => item.data !== "admin:open");
   const rows = [];
   for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2).map((item) => inlineButton(item.label, item.data)));
-  if (isAdmin(ctx)) rows.push([inlineButton("🛡️ Admin", "admin:open")]);
   rows.push([inlineButton("❓ Help", "menu:help")]);
   return inlineKeyboard(rows);
 }
