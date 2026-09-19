@@ -33,7 +33,11 @@ composer.callbackQuery(/^browse:(like|next|view):(-?\d+)$/, async (ctx) => {
   const list = ctx.session[action === "like" ? "liked" : action === "next" ? "skipped" : "viewed"] ?? [];
   if (!list.includes(target)) list.push(target);
   if (action === "like") await ctx.reply("Отметка сохранена. Если симпатия взаимна, мы сообщим вам обоим.");
-  else if (action === "view") await ctx.reply("Личные данные профиля защищены, пока вы оба не дадите согласие.");
+  else if (action === "view") {
+    const own = profileFromSession(ctx);
+    const purpose = own && String(own.userId) === target && (own.fundraisingPurposeText ?? own.fundraising_purpose_text);
+    await ctx.reply(purpose ? `🎯 Цель: ${purpose.slice(0, 80)}${purpose.length > 80 ? "…" : ""}\n\nЛичные данные профиля защищены, пока вы оба не дадите согласие.` : "Личные данные профиля защищены, пока вы оба не дадите согласие.");
+  }
   else await ctx.reply("Хорошо, ищем дальше.");
 });
 

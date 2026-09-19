@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
-import { now, notifyOwner } from "../domain.js";
+import { now, notifyOwner, purposeSummary } from "../domain.js";
 import { notifyAdmins } from "./admin.js";
 
 registerMainMenuItem({ label: "🛡️ Пожаловаться", data: "profile:report", order: 50 });
@@ -25,7 +25,8 @@ composer.callbackQuery(/^report:reason:(-?\d+):(unsafe|content|other)$/, async (
   const timestamp = now();
   const report = { id: `${ctx.from.id}-${targetId}-${timestamp}`, reporterId: ctx.from.id, targetId, reason, status: "open", createdAt: timestamp };
   ctx.session.reports = [...(ctx.session.reports ?? []), report];
-  const notified = await notifyAdmins(ctx, `Новая жалоба требует проверки. Причина: ${reason}.`);
+  const fundraising = ctx.session.profile && purposeSummary(ctx.session.profile as never);
+  const notified = await notifyAdmins(ctx, `Новая жалоба требует проверки. Причина: ${reason}.${fundraising ? ` ${fundraising}` : ""}`);
   await ctx.reply(notified ? "Спасибо, что рассказали. Команда сообщества проверит жалобу." : "Спасибо, что рассказали. Жалоба сохранена, но уведомления владельцу пока не настроены.");
 });
 
