@@ -1,33 +1,63 @@
 [
   {
-    "name": "Admin Room stays private when no admin identity is configured",
+    "name": "Admin Room rejects a wrong code and allows retry",
+    "steps": [
+      {
+        "send": { "callback": "admin:entry" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Введите числовой код доступа к комнате админа." } }
+        ]
+      },
+      {
+        "send": { "text": "000000" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Код не подошёл. Введите числовой код ещё раз." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Admin Room accepts the code and shows Russian menu",
     "steps": [
       {
         "send": { "text": "/admin" },
         "expect": [
-          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+          { "method": "sendMessage", "payload": { "text": "Введите числовой код доступа к комнате админа." } }
+        ]
+      },
+      {
+        "send": { "text": "123477" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Комната админа открыта. Выберите раздел:" } }
         ]
       }
     ]
   },
   {
-    "name": "Admin Room callback stays private for a regular user",
+    "name": "Admin Room logout ends the session",
     "steps": [
       {
-        "send": { "callback": "admin:room" },
+        "send": { "text": "/admin" },
         "expect": [
-          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+          { "method": "sendMessage", "payload": { "text": "Введите числовой код доступа к комнате админа." } }
         ]
-      }
-    ]
-  },
-  {
-    "name": "Pending profiles callback is protected",
-    "steps": [
+      },
       {
-        "send": { "callback": "admin:pending:0" },
+        "send": { "text": "123477" },
         "expect": [
-          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+          { "method": "sendMessage", "payload": { "text": "Комната админа открыта. Выберите раздел:" } }
+        ]
+      },
+      {
+        "send": { "callback": "admin:logout" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Вы вышли из комнаты админа." } }
+        ]
+      },
+      {
+        "send": { "callback": "admin:entry" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Введите числовой код доступа к комнате админа." } }
         ]
       }
     ]

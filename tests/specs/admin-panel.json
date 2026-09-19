@@ -1,28 +1,11 @@
 [
   {
-    "name": "admin panel is unavailable until ADMIN_IDS is configured",
+    "name": "Admin Room button opens a Russian passcode prompt",
     "steps": [
       {
-        "send": { "text": "/admin" },
+        "send": { "callback": "admin:entry" },
         "expect": [
-          {
-            "method": "sendMessage",
-            "payload": { "text": "Доступ администратора пока не настроен." }
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "name": "admin callbacks are protected for regular users",
-    "steps": [
-      {
-        "send": { "callback": "admin:open" },
-        "expect": [
-          {
-            "method": "sendMessage",
-            "payload": { "text": "Доступ администратора пока не настроен." }
-          }
+          { "method": "sendMessage", "payload": { "text": "Введите числовой код доступа к комнате админа." } }
         ]
       }
     ]
