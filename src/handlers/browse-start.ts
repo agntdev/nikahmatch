@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
 import { profileFromSession, profileCard } from "../domain.js";
+import { isBlocked } from "./admin.js";
 
 registerMainMenuItem({ label: "🔎 Найти знакомство", data: "browse:start", order: 20 });
 const composer = new Composer<Ctx>();
@@ -16,6 +17,7 @@ function actions(target: number) {
 
 composer.callbackQuery("browse:start", async (ctx) => {
   await ctx.answerCallbackQuery();
+  if (isBlocked(ctx)) { await ctx.reply("Ваш доступ к поиску приостановлен. Если это ошибка, обратитесь к команде сообщества."); return; }
   const own = profileFromSession(ctx);
   if (!own?.complete) {
     await ctx.reply("Сначала заполните профиль — после этого здесь появятся подходящие знакомства.", { reply_markup: inlineKeyboard([[inlineButton("📝 Создать профиль", "profile:create")]]) });

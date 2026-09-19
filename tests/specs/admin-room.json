@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Admin Room stays private when no admin identity is configured",
+    "steps": [
+      {
+        "send": { "text": "/admin" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Admin Room callback stays private for a regular user",
+    "steps": [
+      {
+        "send": { "callback": "admin:room" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pending profiles callback is protected",
+    "steps": [
+      {
+        "send": { "callback": "admin:pending:0" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Доступ администратора пока не настроен." } }
+        ]
+      }
+    ]
+  }
+]
