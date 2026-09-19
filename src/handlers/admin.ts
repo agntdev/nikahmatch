@@ -88,7 +88,6 @@ function roomKeyboard() {
     [inlineButton("Просмотреть жалобы", "admin:reports:0")],
     [inlineButton("Управление анкетами", "admin:pending:0")],
     [inlineButton("Уведомления/Рассылка", "admin:broadcast")],
-    [inlineButton("Настройки модерации", "admin:settings")],
     [inlineButton("Выйти из админа", "admin:logout")],
   ]);
 }
