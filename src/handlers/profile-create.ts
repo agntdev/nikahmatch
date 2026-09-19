@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { draftFromSession, now, notifyOwner, profileCard } from "../domain.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
+import { isBlocked } from "./admin.js";
 
 registerMainMenuItem({ label: "📝 Создать профиль", data: "profile:create", order: 10 });
 
@@ -17,6 +18,7 @@ function askNext(ctx: Ctx, step: string, text: string, placeholder: string) {
 
 composer.callbackQuery("profile:create", async (ctx) => {
   await ctx.answerCallbackQuery();
+  if (isBlocked(ctx)) { await ctx.reply("Ваш доступ к профилям приостановлен. Если это ошибка, обратитесь к команде сообщества."); return; }
   ctx.session.step = "profile_language";
   ctx.session.draft = {};
   await ctx.reply("Создадим профиль для серьёзного знакомства с намерением к никаху. Выберите язык:", {
@@ -124,7 +126,7 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   await ctx.answerCallbackQuery();
   const d = draftFromSession(ctx);
   const timestamp = now();
-  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: true, createdAt: timestamp, updatedAt: timestamp };
+  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
   ctx.session.draft = undefined;
   ctx.session.step = undefined;
   const notified = await notifyOwner(ctx, `Новый профиль: ${String(d.displayName)} (${String(d.age)}), ${String(d.city)}.`);

@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { now } from "../domain.js";
-import { adminChatId, inlineButton, inlineKeyboard } from "../toolkit/index.js";
+import { adminChatId, inlineButton, inlineKeyboard, isOwner } from "../toolkit/index.js";
 
 /** Admin IDs are deploy-time configuration. They are never claimed in chat. */
 function config(ctx: Ctx): string[] {
@@ -12,7 +12,17 @@ function config(ctx: Ctx): string[] {
 
 export function isAdmin(ctx: Ctx): boolean {
   const ids = config(ctx);
-  return ids.length > 0 && ids.includes(String(ctx.from?.id ?? ctx.chat?.id ?? ""));
+  const caller = String(ctx.from?.id ?? ctx.chat?.id ?? "");
+  return (ids.length > 0 && ids.includes(caller)) || isOwner(ctx);
+}
+
+export function isSuperAdmin(ctx: Ctx): boolean {
+  return isOwner(ctx);
+}
+
+/** Account status is kept with the user's durable account/session record. */
+export function isBlocked(ctx: Ctx): boolean {
+  return ctx.session.adminState?.banned === true || Boolean(ctx.session.adminState?.suspendedUntil);
 }
 
 /** Best-effort moderation alert fan-out. A blocked admin must not stop others. */
@@ -41,27 +51,83 @@ function audit(ctx: Ctx, actionType: string, targetUserId: number | undefined, a
   }].slice(-100);
 }
 
+function roomKeyboard() {
+  return inlineKeyboard([
+    [inlineButton("⏳ Pending profiles", "admin:pending:0"), inlineButton("📋 Reports", "admin:reports:0")],
+    [inlineButton("✅ Active profiles", "admin:active:0"), inlineButton("👥 Users", "admin:users:0")],
+    [inlineButton("📣 Broadcast", "admin:broadcast"), inlineButton("📊 Statistics", "admin:statistics")],
+    [inlineButton("⚙️ Settings", "admin:settings"), inlineButton("🧾 Audit log", "admin:audit:0")],
+    [inlineButton("⬅️ В меню", "menu:main")],
+  ]);
+}
+
+async function openRoom(ctx: Ctx) {
+  await ctx.reply("Admin Room открыт. Выберите раздел:", { reply_markup: roomKeyboard() });
+}
+
 const composer = new Composer<Ctx>();
 
 export { config as adminIds };
 
 composer.command("admin", async (ctx) => {
   if (!(await requireAdmin(ctx))) return;
-  await ctx.reply("Панель администратора открыта. Выберите раздел:", { reply_markup: inlineKeyboard([
-    [inlineButton("📊 Обзор", "admin:dashboard"), inlineButton("🛡️ Очередь", "admin:queue")],
-    [inlineButton("📋 Жалобы", "admin:reports:0"), inlineButton("👥 Пользователи", "admin:users")],
-    [inlineButton("📣 Рассылка", "admin:broadcast")],
-  ]) });
+  await openRoom(ctx);
 });
 
 composer.callbackQuery("admin:open", async (ctx) => {
   await ctx.answerCallbackQuery();
   if (!(await requireAdmin(ctx))) return;
-  await ctx.reply("Панель администратора открыта. Выберите раздел:", { reply_markup: inlineKeyboard([
-    [inlineButton("📊 Обзор", "admin:dashboard"), inlineButton("🛡️ Очередь", "admin:queue")],
-    [inlineButton("📋 Жалобы", "admin:reports:0"), inlineButton("👥 Пользователи", "admin:users")],
-    [inlineButton("📣 Рассылка", "admin:broadcast")],
+  await openRoom(ctx);
+});
+
+composer.callbackQuery("admin:room", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (await requireAdmin(ctx)) await openRoom(ctx);
+});
+
+composer.callbackQuery(/^admin:(pending|active|users|audit):(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const [, section, page] = ctx.callbackQuery.data.split(":");
+  const n = Number(page);
+  const profile = ctx.session.profile;
+  const label = section === "pending" ? "Ожидающие профили" : section === "active" ? "Активные профили" : section === "users" ? "Пользователи" : "Журнал действий";
+  if (section === "audit") {
+    const entries = ctx.session.adminActions ?? [];
+    if (!entries.length) { await ctx.reply("Журнал действий пока пуст.", { reply_markup: roomKeyboard() }); return; }
+    const pageEntry = entries.slice().reverse()[n];
+    await ctx.reply(`Журнал действий\n\nАдминистратор: ${pageEntry.adminId}\nДействие: ${pageEntry.actionType}\nЦель: ${pageEntry.targetUserId ?? "не указана"}\nВремя: ${pageEntry.timestamp}\nПричина: ${pageEntry.reason ?? "не указана"}`, { reply_markup: inlineKeyboard([
+      [inlineButton("Предыдущая", `admin:audit:${Math.max(0, n - 1)}`), inlineButton("Следующая", `admin:audit:${n + 1}`)],
+      [inlineButton("⬅️ В Admin Room", "admin:room")],
+    ]) });
+    return;
+  }
+  const moderation = String((profile as Record<string, unknown> | undefined)?.moderationStatus ?? "pending");
+  if (!profile || profile.deleted || (section === "pending" && moderation === "approved") || (section === "active" && moderation !== "approved")) {
+    await ctx.reply(`${label}: пока пусто.`, { reply_markup: roomKeyboard() });
+    return;
+  }
+  await ctx.reply(`${label}\n\n1. Профиль ${profile.userId} · ${profile.displayName}`, { reply_markup: inlineKeyboard([
+    [inlineButton("Открыть", `admin:profile:${profile.userId}`)],
+    [inlineButton("Предыдущая", `admin:${section}:${Math.max(0, n - 1)}`), inlineButton("Следующая", `admin:${section}:${n + 1}`)],
+    [inlineButton("⬅️ В Admin Room", "admin:room")],
   ]) });
+});
+
+composer.callbackQuery("admin:statistics", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const p = ctx.session.profile;
+  const reports = ctx.session.reports ?? [];
+  const actions = ctx.session.adminActions ?? [];
+  const status = String((p as Record<string, unknown> | undefined)?.moderationStatus ?? "pending");
+  await ctx.reply(`Статистика\n\nПользователей: ${p ? 1 : 0}\nАктивных профилей: ${p && !p.deleted && status === "approved" ? 1 : 0}\nОжидающих профилей: ${p && !p.deleted && status !== "approved" ? 1 : 0}\nЖалоб: ${reports.length}\nСовпадений: ${(ctx.session.matches ?? []).length}\nДействий модерации: ${actions.length}`, { reply_markup: inlineKeyboard([[inlineButton("⬅️ В Admin Room", "admin:room")]]) });
+});
+
+composer.callbackQuery("admin:settings", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  await ctx.reply(isSuperAdmin(ctx) ? "Настройки Admin Room\n\nВы — супер-администратор. Список администраторов задаётся в защищённой конфигурации проекта." : "Настройки Admin Room доступны только супер-администратору.", { reply_markup: inlineKeyboard([[inlineButton("⬅️ В Admin Room", "admin:room")]]) });
 });
 
 composer.callbackQuery("admin:dashboard", async (ctx) => {
@@ -110,7 +176,7 @@ composer.callbackQuery(/^admin:profile:(-?\d+)$/, async (ctx) => {
 composer.callbackQuery(/^admin:(ban|delete):(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
   const [, action, target] = ctx.callbackQuery.data.split(":");
-  await ctx.reply(action === "ban" ? "Заблокировать пользователя навсегда?" : "Удалить профиль без возможности восстановления?", { reply_markup: inlineKeyboard([
+  await ctx.reply(action === "ban" ? "Заблокировать пользователя навсегда? Укажите причину после подтверждения." : "Удалить профиль без возможности восстановления? Укажите причину после подтверждения.", { reply_markup: inlineKeyboard([
     [inlineButton("Подтвердить", `admin:confirm:${action}:${target}`), inlineButton("Отмена", "admin:queue")],
   ]) });
 });
@@ -118,21 +184,33 @@ composer.callbackQuery(/^admin:(ban|delete):(-?\d+)$/, async (ctx) => {
 composer.callbackQuery(/^admin:confirm:(ban|delete):(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
   const [, action, target] = ctx.callbackQuery.data.split(":");
+  ctx.session.step = `admin_reason:${action}:${target}`;
+  await ctx.reply("Напишите короткую причину действия. Это попадёт в неизменяемый журнал.", { reply_markup: { force_reply: true, input_field_placeholder: "Причина действия" } });
+});
+
+composer.on("message:text", async (ctx, next) => {
+  const step = ctx.session.step ?? "";
+  if (!step.startsWith("admin_reason:")) return next();
+  if (!(await requireAdmin(ctx))) return;
+  const [, action, target] = step.split(":");
   const id = Number(target);
   if (ctx.session.profile && ctx.session.profile.userId === id) {
     if (action === "ban") ctx.session.adminState = { ...(ctx.session.adminState ?? {}), banned: true };
-    else ctx.session.profile.deleted = true;
+    else if (action === "delete") ctx.session.profile.deleted = true;
+    else if (action === "suspend") ctx.session.adminState = { ...(ctx.session.adminState ?? {}), suspendedUntil: now() };
+    else if (action === "reject") { ctx.session.profile.complete = false; ctx.session.profile.moderationStatus = "rejected"; }
   }
-  audit(ctx, action, id, "completed");
+  ctx.session.step = undefined;
+  audit(ctx, action, id, "completed", ctx.message.text.trim());
   await ctx.reply(action === "ban" ? "Пользователь заблокирован. Действие записано в журнал." : "Профиль удалён. Действие записано в журнал.");
 });
 
 composer.callbackQuery(/^admin:(approve|warn|suspend|note):(-?\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return;
   const [, action, target] = ctx.callbackQuery.data.split(":"); const id = Number(target);
-  if (action === "approve") { audit(ctx, action, id, "completed"); await ctx.reply("Профиль одобрен и остаётся видимым в поиске."); return; }
+  if (action === "approve") { if (ctx.session.profile && ctx.session.profile.userId === id) ctx.session.profile.moderationStatus = "approved"; audit(ctx, action, id, "completed"); await ctx.reply("Профиль одобрен и теперь виден в поиске."); return; }
   if (action === "note") { audit(ctx, action, id, "completed", "Заметка добавлена в журнал"); await ctx.reply("Заметка добавлена в журнал модерации."); return; }
-  if (action === "suspend") ctx.session.adminState = { ...(ctx.session.adminState ?? {}), suspendedUntil: now() };
+  if (action === "suspend") { ctx.session.step = `admin_reason:suspend:${target}`; await ctx.reply("Напишите причину приостановки профиля.", { reply_markup: { force_reply: true, input_field_placeholder: "Причина приостановки" } }); return; }
   audit(ctx, action, id, "completed");
   await ctx.reply(action === "warn" ? "Предупреждение отправлено пользователю." : "Профиль временно приостановлен.");
 });
@@ -168,5 +246,54 @@ composer.on("message:text", async (ctx, next) => {
 composer.callbackQuery("admin:broadcast:confirm", async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return; audit(ctx, "broadcast", undefined, "queued"); ctx.session.step = undefined; await ctx.reply("Рассылка поставлена в очередь. Статистика доставки появится после обработки."); });
 
 composer.callbackQuery(/^admin:reports:(\d+)$/, async (ctx) => { await ctx.answerCallbackQuery(); if (!(await requireAdmin(ctx))) return; const reports = ctx.session.reports ?? []; await ctx.reply(reports.length ? `Жалоб в журнале: ${reports.length}.` : "Жалоб пока нет.", { reply_markup: inlineKeyboard([[inlineButton("Следующая страница", "admin:reports:1")], [inlineButton("⬅️ В панель", "admin:open")]]) }); });
+
+composer.callbackQuery(/^admin:report:(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const report = (ctx.session.reports ?? [])[Number(ctx.callbackQuery.data.split(":").pop())];
+  if (!report) { await ctx.reply("Эта жалоба уже закрыта или не найдена.", { reply_markup: roomKeyboard() }); return; }
+  await ctx.reply(`Жалоба\n\nОтправитель: ${report.reporterId}\nПрофиль: ${report.targetId}\nПричина: ${report.reason}\nВремя: ${report.createdAt}\nСтатус: ${report.status}`, { reply_markup: inlineKeyboard([
+    [inlineButton("Открыть профиль", `admin:profile:${report.targetId}`)],
+    [inlineButton("Закрыть жалобу", `admin:report:dismiss:${report.id}`), inlineButton("Принять меры", `admin:report:action:${report.targetId}`)],
+    [inlineButton("⬅️ В Admin Room", "admin:room")],
+  ]) });
+});
+
+composer.callbackQuery(/^admin:report:dismiss:(.+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const id = ctx.callbackQuery.data.slice("admin:report:dismiss:".length);
+  const report = (ctx.session.reports ?? []).find((item) => item.id === id);
+  if (report) report.status = "dismissed";
+  audit(ctx, "dismiss_report", typeof report?.targetId === "number" ? report.targetId : undefined, "completed", "Жалоба закрыта администратором");
+  await ctx.reply("Жалоба закрыта и записана в журнал.", { reply_markup: roomKeyboard() });
+});
+
+composer.callbackQuery(/^admin:report:action:(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const target = ctx.callbackQuery.data.split(":").pop();
+  await ctx.reply("Выберите действие для профиля. Для удаления и блокировки потребуется подтверждение и причина.", { reply_markup: inlineKeyboard([
+    [inlineButton("Удалить профиль", `admin:delete:${target}`), inlineButton("Заблокировать", `admin:ban:${target}`)],
+    [inlineButton("Приостановить", `admin:suspend:${target}`), inlineButton("Отклонить", `admin:reject:${target}`)],
+    [inlineButton("⬅️ К жалобе", "admin:reports:0")],
+  ]) });
+});
+
+composer.callbackQuery(/^admin:reject:(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const target = ctx.callbackQuery.data.split(":").pop();
+  ctx.session.step = `admin_reason:reject:${target}`;
+  await ctx.reply("Напишите причину отклонения профиля.", { reply_markup: { force_reply: true, input_field_placeholder: "Причина отклонения" } });
+});
+
+composer.callbackQuery(/^admin:suspend:(-?\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  if (!(await requireAdmin(ctx))) return;
+  const target = ctx.callbackQuery.data.split(":").pop();
+  ctx.session.step = `admin_reason:suspend:${target}`;
+  await ctx.reply("Напишите причину приостановки профиля.", { reply_markup: { force_reply: true, input_field_placeholder: "Причина приостановки" } });
+});
 
 export default composer;

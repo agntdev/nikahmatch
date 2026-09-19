@@ -17,6 +17,7 @@ export type Profile = {
   hideName: boolean;
   hidePhotos: boolean;
   complete: boolean;
+  moderationStatus?: "pending" | "approved" | "rejected";
   deleted?: boolean;
   createdAt: string;
   updatedAt: string;
