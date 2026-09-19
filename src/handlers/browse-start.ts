@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
-import { now, profileFromSession, profileCard } from "../domain.js";
+import { now, profileFromSession, profileCard, publishedProfiles } from "../domain.js";
 import { isBlocked } from "./admin.js";
 
 registerMainMenuItem({ label: "🔎 Найти знакомство", data: "browse:start", order: 20 });
@@ -24,7 +24,22 @@ composer.callbackQuery("browse:start", async (ctx) => {
     await ctx.reply("Сначала заполните профиль — после этого здесь появятся подходящие знакомства.", { reply_markup: inlineKeyboard([[inlineButton("📝 Создать профиль", "profile:create")]]) });
     return;
   }
-  await ctx.reply("Пока нет знакомств по вашим фильтрам. Попробуйте изменить их или загляните позже.", { reply_markup: inlineKeyboard([[inlineButton("Изменить фильтры", "browse:filters")], [inlineButton("⬅️ В меню", "menu:main")]]) });
+  const blocked = new Set((ctx.session.blacklist ?? []).map((entry) => entry.userId));
+  const profiles = (await publishedProfiles()).filter((profile) =>
+    profile.userId !== ctx.from?.id &&
+    profile.complete === true &&
+    profile.visible === true &&
+    profile.deleted !== true &&
+    profile.moderationStatus !== "rejected" &&
+    !blocked.has(profile.userId),
+  );
+  const first = profiles[0];
+  if (!first) {
+    await ctx.reply("Пока нет знакомств по вашим фильтрам. Попробуйте изменить их или загляните позже.", { reply_markup: inlineKeyboard([[inlineButton("Изменить фильтры", "browse:filters")], [inlineButton("⬅️ В меню", "menu:main")]]) });
+    return;
+  }
+  ctx.session.viewed = [...(ctx.session.viewed ?? []), String(first.userId)].slice(-100);
+  await ctx.reply(profileCard(first, ctx.from?.id), { reply_markup: actions(first.userId) });
 });
 
 composer.callbackQuery(/^browse:(like|next|view):(-?\d+)$/, async (ctx) => {

@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { editTextOrReply, now, notifyOwner, profileFromSession } from "../domain.js";
+import { editTextOrReply, now, notifyOwner, profileFromSession, removeProfileFromIndex, saveProfileIndex } from "../domain.js";
 import { inlineButton, inlineKeyboard, mainMenuItems, registerMainMenuItem } from "../toolkit/index.js";
 
 // Russian users can always find their profile from the top-level menu.
@@ -88,6 +88,7 @@ composer.callbackQuery("menu:profile:toggle", async (ctx) => {
   }
   profile.visible = profile.visible === false;
   profile.updatedAt = now();
+  await saveProfileIndex(profile);
   await ctx.reply(`Анкета теперь ${profile.visible ? "опубликована" : "скрыта"}.`, {
     reply_markup: profileKeyboard(profile.visible),
   });
@@ -109,6 +110,7 @@ composer.callbackQuery("menu:profile:delete:no", async (ctx) => {
 
 composer.callbackQuery("menu:profile:delete:yes", async (ctx) => {
   await ctx.answerCallbackQuery();
+  await removeProfileFromIndex(ctx.from.id);
   ctx.session.profile = undefined;
   ctx.session.draft = undefined;
   ctx.session.matches = undefined;
@@ -165,6 +167,7 @@ composer.callbackQuery("menu:edit:auto", async (ctx) => {
   profile.status = profile.autoPublish ? "auto_published" : "pending";
   profile.publicationAction = profile.autoPublish ? "auto_published" : undefined;
   profile.updatedAt = now();
+  await saveProfileIndex(profile);
   await ctx.reply(profile.autoPublish ? "Автопубликация включена — профиль виден сразу." : "Автопубликация выключена — профиль будет проверяться командой.", { reply_markup: profileKeyboard(profile.visible) });
 });
 
@@ -200,6 +203,7 @@ composer.on("message:text", async (ctx, next) => {
     profile.bio = value;
   }
   profile.updatedAt = now();
+  await saveProfileIndex(profile);
   ctx.session.step = undefined;
   await ctx.reply("Изменения сохранены.", { reply_markup: profileKeyboard(profile.visible !== false) });
 });

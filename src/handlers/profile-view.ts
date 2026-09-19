@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard, registerMainMenuItem } from "../toolkit/index.js";
-import { now, notifyOwner, profileFromSession, purposeSummary, sanitizePurpose } from "../domain.js";
+import { now, notifyOwner, profileFromSession, purposeSummary, sanitizePurpose, saveProfileIndex, removeProfileFromIndex } from "../domain.js";
 
 registerMainMenuItem({ label: "👤 Мой профиль", data: "profile:view", order: 30 });
 const composer = new Composer<Ctx>();
@@ -60,6 +60,7 @@ composer.callbackQuery("profile:edit:auto", async (ctx) => {
   p.status = p.autoPublish ? "auto_published" : "pending";
   p.publicationAction = p.autoPublish ? "auto_published" : undefined;
   p.updatedAt = now();
+  await saveProfileIndex(p);
   await ctx.reply(p.autoPublish ? "Автопубликация включена — профиль виден сразу." : "Автопубликация выключена — профиль будет проверяться командой.", { reply_markup: editKeyboard() });
 });
 
@@ -128,6 +129,6 @@ composer.callbackQuery("privacy:name", async (ctx) => { await ctx.answerCallback
 composer.callbackQuery("privacy:photos", async (ctx) => { await ctx.answerCallbackQuery(); const p = profileFromSession(ctx); if (p) p.hidePhotos = !p.hidePhotos; await ctx.reply(p?.hidePhotos ? "Ваши фото скрыты." : "Ваши фото видны другим заполненным профилям."); });
 composer.callbackQuery("profile:delete", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.reply("Удаление уберёт профиль, фото, совпадения и жалобы. Вернуть данные нельзя.", { reply_markup: inlineKeyboard([[inlineButton("Удалить всё", "profile:delete:yes"), inlineButton("Оставить профиль", "profile:delete:no")]]) }); });
 composer.callbackQuery("profile:delete:no", async (ctx) => { await ctx.answerCallbackQuery(); await ctx.reply("Профиль в безопасности — ничего не удалено."); });
-composer.callbackQuery("profile:delete:yes", async (ctx) => { await ctx.answerCallbackQuery(); ctx.session.profile = undefined; ctx.session.draft = undefined; ctx.session.matches = undefined; ctx.session.reports = undefined; ctx.session.liked = undefined; ctx.session.favorites = undefined; ctx.session.blacklist = undefined; ctx.session.visitors = undefined; ctx.session.profilePhotos = undefined; ctx.session.photoRatings = undefined; await notifyOwner(ctx, `Участник удалил профиль (${ctx.from.id}).`); await ctx.reply("Профиль и связанные данные удалены. Возвращайтесь, когда будете готовы."); });
+  composer.callbackQuery("profile:delete:yes", async (ctx) => { await ctx.answerCallbackQuery(); await removeProfileFromIndex(ctx.from.id); ctx.session.profile = undefined; ctx.session.draft = undefined; ctx.session.matches = undefined; ctx.session.reports = undefined; ctx.session.liked = undefined; ctx.session.favorites = undefined; ctx.session.blacklist = undefined; ctx.session.visitors = undefined; ctx.session.profilePhotos = undefined; ctx.session.photoRatings = undefined; await notifyOwner(ctx, `Участник удалил профиль (${ctx.from.id}).`); await ctx.reply("Профиль и связанные данные удалены. Возвращайтесь, когда будете готовы."); });
 
 export default composer;

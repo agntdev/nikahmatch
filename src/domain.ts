@@ -1,5 +1,5 @@
 import type { Ctx } from "./bot.js";
-import { adminChatId } from "./toolkit/index.js";
+import { adminChatId, deleteShared, readShared, writeShared } from "./toolkit/index.js";
 import type { InlineKeyboardMarkup } from "./toolkit/ui/keyboard.js";
 
 export type Profile = {
@@ -44,6 +44,26 @@ export type Report = {
   status: "open" | "resolved" | "dismissed";
   createdAt: string;
 };
+
+const PROFILE_INDEX_KEY = "nikaḥ:profiles:index";
+
+/** Cross-user profile index. The index is explicit; no storage key scans are used. */
+export async function publishedProfiles(): Promise<Profile[]> {
+  const rows = await readShared<Profile[]>(PROFILE_INDEX_KEY);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function saveProfileIndex(profile: Profile): Promise<void> {
+  const rows = await publishedProfiles();
+  const next = rows.filter((row) => row.userId !== profile.userId);
+  if (!profile.deleted) next.push(profile);
+  await writeShared(PROFILE_INDEX_KEY, next);
+}
+
+export async function removeProfileFromIndex(userId: number): Promise<void> {
+  const rows = await publishedProfiles();
+  await writeShared(PROFILE_INDEX_KEY, rows.filter((row) => row.userId !== userId));
+}
 
 let clock = (): Date => new Date();
 export const now = (): string => clock().toISOString();
