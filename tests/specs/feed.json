@@ -33,10 +33,10 @@
     ]
   },
   {
-    "name": "Feed reaction route handles a missing post safely",
+    "name": "Feed like toggle handles a missing post safely",
     "steps": [
       {
-        "send": { "callback": "feed:react:post-1:like" },
+        "send": { "callback": "feed:like:post-1" },
         "expect": [
           { "method": "sendMessage", "payload": { "text": "Эта запись больше недоступна." } }
         ]

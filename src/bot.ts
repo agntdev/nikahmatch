@@ -55,7 +55,14 @@ export interface Session {
     reaction: "like" | "dislike";
     updatedAt: string;
   }>;
+  /** One durable session-backed row per unique (userId, postId) like. */
+  feedLikes?: Array<{
+    postId: string;
+    userId: number;
+    createdAt: string;
+  }>;
   feedPostDays?: Record<string, number>;
+  feedCursor?: number;
   feedReports?: Array<{ postId: string; reporterUserId: number; createdAt: string; status: "open" | "dismissed" | "removed"; likesCount?: number; dislikesCount?: number }>;
 }
 
