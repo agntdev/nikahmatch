@@ -126,7 +126,7 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   await ctx.answerCallbackQuery();
   const d = draftFromSession(ctx);
   const timestamp = now();
-  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
+  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
   ctx.session.draft = undefined;
   ctx.session.step = undefined;
   const notified = await notifyOwner(ctx, `Новый профиль: ${String(d.displayName)} (${String(d.age)}), ${String(d.city)}.`);

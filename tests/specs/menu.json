@@ -1,0 +1,61 @@
+[
+  {
+    "name": "/menu opens the Russian menu",
+    "steps": [
+      {
+        "send": { "text": "/menu" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Выберите, что хотите открыть:" } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "My profile explains the empty state",
+    "steps": [
+      {
+        "send": { "callback": "menu:profile" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "У вас пока нет анкеты. Создайте её — это поможет найти подходящее знакомство." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "menu button opens the menu in place",
+    "steps": [
+      {
+        "send": { "callback": "menu:open" },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Выберите, что хотите открыть:" } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "profile management can publish and delete an account",
+    "steps": [
+      { "send": { "callback": "profile:create" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Создадим профиль для серьёзного знакомства с намерением к никаху. Выберите язык:" } }] },
+      { "send": { "callback": "profile:lang:ru" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Здесь общаются уважительно и только с намерением к браку. Вам уже исполнилось 18 лет и вы согласны соблюдать эти правила?" } }] },
+      { "send": { "callback": "profile:consent:yes" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как к вам обращаться в профиле?" } }] },
+      { "send": { "text": "Амина" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Сколько вам лет? Профиль доступен с 18 лет." } }] },
+      { "send": { "text": "25" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как вы себя описываете?" } }] },
+      { "send": { "callback": "profile:gender:woman" }, "expect": [{ "method": "sendMessage", "payload": { "text": "В каком городе или регионе вы живёте?" } }] },
+      { "send": { "text": "Казань" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Каков ваш семейный статус?" } }] },
+      { "send": { "callback": "profile:marital:single" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Следуете определённой школе или мазхабу? Это необязательно." } }] },
+      { "send": { "callback": "profile:sect:skip" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Как бы вы описали свою практику?" } }] },
+      { "send": { "callback": "profile:practice:growing" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Какое у вас образование или направление учёбы?" } }] },
+      { "send": { "text": "Университет" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Где вы учитесь или работаете?" } }] },
+      { "send": { "text": "Учительница" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Напишите несколько тёплых слов о себе и о том, кого надеетесь встретить." } }] },
+      { "send": { "text": "Люблю добрые разговоры и надеюсь встретить внимательного человека." }, "expect": [{ "method": "sendMessage", "payload": { "text": "Предпросмотр готов. Фото необязательны и останутся скрытыми, пока вы не решите их показать." } }] },
+      { "send": { "callback": "profile:photos:skip" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "profile:confirm" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены." } }] },
+      { "send": { "callback": "menu:profile" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "menu:profile:toggle" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета теперь скрыта." } }] },
+      { "send": { "callback": "menu:profile:toggle" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета теперь опубликована." } }] },
+      { "send": { "callback": "menu:profile:delete" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета, фото и связанные данные будут удалены без возможности восстановления. Подтвердить?" } }] },
+      { "send": { "callback": "menu:profile:delete:no" }, "expect": [{ "method": "sendMessage" }] },
+      { "send": { "callback": "menu:profile:delete:yes" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Анкета и связанные данные удалены. Вы сможете создать новую анкету в любое время." } }] }
+    ]
+  }
+]
