@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Feed opens with a useful empty state",
+    "steps": [
+      {
+        "send": { "callback": "feed:open" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "В ленте пока тихо — добавьте первую запись с фото." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Feed creation starts with a photo prompt",
+    "steps": [
+      {
+        "send": { "callback": "feed:create" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Пришлите одно фото для записи. Подойдут только изображения." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Feed reports a post safely",
+    "steps": [
+      {
+        "send": { "callback": "feed:report:post-1" },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Спасибо, что рассказали. Команда сообщества проверит запись." } }
+        ]
+      }
+    ]
+  }
+]

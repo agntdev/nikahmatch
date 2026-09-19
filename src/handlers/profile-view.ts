@@ -30,6 +30,7 @@ composer.callbackQuery("profile:view", async (ctx) => {
   const p = profileFromSession(ctx);
   if (!p) { await ctx.reply("Вы ещё не создали профиль. Это займёт всего несколько минут.", { reply_markup: inlineKeyboard([[inlineButton("📝 Создать профиль", "profile:create")]]) }); return; }
   await ctx.reply(profileText(p), { reply_markup: inlineKeyboard([
+    [inlineButton("📰 Лента", "feed:open")],
     [inlineButton("Изменить профиль", "profile:edit")],
     [inlineButton(p.hideName ? "Показать имя" : "Скрыть имя", "privacy:name")],
     [inlineButton(p.hidePhotos ? "Показать фото" : "Скрыть фото", "privacy:photos")],
