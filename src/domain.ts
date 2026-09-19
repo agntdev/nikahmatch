@@ -21,6 +21,9 @@ export type Profile = {
   visible?: boolean;
   complete: boolean;
   moderationStatus?: "pending" | "approved" | "rejected";
+  autoPublish?: boolean;
+  publicationAction?: "auto_published" | "admin_published" | "moderator_published" | "unpublished";
+  status?: "published" | "draft" | "pending" | "auto_published" | "unpublished";
   deleted?: boolean;
   createdAt: string;
   updatedAt: string;

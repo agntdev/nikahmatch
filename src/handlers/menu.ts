@@ -139,6 +139,7 @@ composer.callbackQuery("menu:profile:edit", async (ctx) => {
       [inlineButton("Имя", "menu:edit:name"), inlineButton("Возраст", "menu:edit:age")],
       [inlineButton("Город или регион", "menu:edit:city")],
       [inlineButton("О себе", "menu:edit:bio")],
+      [inlineButton("Автопубликация", "menu:edit:auto")],
       [inlineButton("Назад", "menu:profile")],
     ]),
   });
@@ -152,6 +153,19 @@ composer.callbackQuery(/^menu:edit:(name|age|city|bio)$/, async (ctx) => {
   await ctx.reply(`Напишите новый вариант: ${labels[field ?? ""] ?? "значение"}.`, {
     reply_markup: { force_reply: true, input_field_placeholder: labels[field ?? ""] ?? "Новый вариант" },
   });
+});
+
+composer.callbackQuery("menu:edit:auto", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const profile = profileFromSession(ctx);
+  if (!profile || profile.deleted) { await openProfile(ctx); return; }
+  profile.autoPublish = profile.autoPublish !== true;
+  profile.visible = profile.autoPublish;
+  profile.moderationStatus = profile.autoPublish ? "approved" : "pending";
+  profile.status = profile.autoPublish ? "auto_published" : "pending";
+  profile.publicationAction = profile.autoPublish ? "auto_published" : undefined;
+  profile.updatedAt = now();
+  await ctx.reply(profile.autoPublish ? "Автопубликация включена — профиль виден сразу." : "Автопубликация выключена — профиль будет проверяться командой.", { reply_markup: profileKeyboard(profile.visible) });
 });
 
 composer.on("message:text", async (ctx, next) => {

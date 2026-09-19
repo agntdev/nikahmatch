@@ -31,9 +31,12 @@ export interface Session {
     suspendedUntil?: string;
     banned?: boolean;
     verified?: boolean;
-    role?: "user" | "moderator";
+    role?: "user" | "moderator" | "admin";
     note?: string;
   };
+  /** Profile records are persisted with the toolkit session adapter. */
+  profiles?: Array<Record<string, unknown>>;
+  auditLog?: Array<{ actorId: number; targetId?: number; action: string; timestamp: string; reason?: string }>;
   broadcastDraft?: { text?: string; confirmed?: boolean };
   adminRoom?: {
     lastActivity: string;

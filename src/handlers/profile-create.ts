@@ -32,12 +32,24 @@ function finishPreview(ctx: Ctx) {
   if (required.some((key) => (d as Record<string, unknown>)[key] === undefined)) {
     return ctx.reply("Не хватает одной детали. Нажмите «Создать профиль» и попробуйте ещё раз.");
   }
-  ctx.session.step = "profile_confirm";
+  ctx.session.step = "profile_auto_publish";
   const userId = ctx.from?.id ?? 0;
   return ctx.reply(`Вот как выглядит ваш профиль:\n\n${profileCard({ ...d, userId, hideName: true, hidePhotos: true, complete: false, createdAt: now(), updatedAt: now() } as never, userId)}`, {
-    reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm"), inlineButton("Изменить позже", "profile:create")]]),
+    reply_markup: inlineKeyboard([[inlineButton("Публиковать сразу", "profile:auto:yes"), inlineButton("После проверки", "profile:auto:no")], [inlineButton("Изменить позже", "profile:create")]]),
   });
 }
+
+composer.callbackQuery("profile:auto:yes", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  draftFromSession(ctx).autoPublish = true;
+  await ctx.reply("Профиль будет опубликован сразу после подтверждения.", { reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm")]]) });
+});
+
+composer.callbackQuery("profile:auto:no", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  draftFromSession(ctx).autoPublish = false;
+  await ctx.reply("Профиль попадёт на проверку команды сообщества.", { reply_markup: inlineKeyboard([[inlineButton("✅ Подтвердить", "profile:confirm")]]) });
+});
 
 composer.callbackQuery("profile:create", async (ctx) => {
   await ctx.answerCallbackQuery();
@@ -180,7 +192,10 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   await ctx.answerCallbackQuery();
   const d = draftFromSession(ctx);
   const timestamp = now();
-  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: true, complete: true, moderationStatus: "pending", createdAt: timestamp, updatedAt: timestamp };
+  const autoPublish = d.autoPublish === true;
+  const optedIntoChoice = typeof d.autoPublish === "boolean";
+  ctx.session.profile = { ...d, userId: ctx.from.id, hideName: true, hidePhotos: true, visible: autoPublish || !optedIntoChoice, complete: true, autoPublish, moderationStatus: autoPublish ? "approved" : "pending", status: autoPublish ? "auto_published" : "pending", publicationAction: autoPublish ? "auto_published" : undefined, createdAt: timestamp, updatedAt: timestamp };
+  ctx.session.profiles = [...(ctx.session.profiles ?? []).filter((p) => p.userId !== ctx.from.id), ctx.session.profile as Record<string, unknown>];
   const draftPhotos = Array.isArray(d.photos) ? d.photos.filter((value): value is string => typeof value === "string") : [];
   if (draftPhotos.length) {
     ctx.session.profilePhotos = draftPhotos.slice(0, 10).map((fileId, index) => ({
@@ -201,7 +216,12 @@ composer.callbackQuery("profile:confirm", async (ctx) => {
   if (d.fundraisingPurposeText || d.fundraising_purpose_text) {
     await ctx.reply("Цель добавлена в профиль. Purpose added to your profile.");
   }
-  await ctx.reply(notified ? "Профиль опубликован. Команда сообщества получила уведомление." : "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены.");
+  const message = !optedIntoChoice
+    ? (notified ? "Профиль опубликован. Команда сообщества получила уведомление." : "Профиль сохранён и опубликован. Уведомления владельцу пока не настроены.")
+    : autoPublish
+    ? (notified ? "Профиль опубликован сразу. Команда сообщества получила уведомление." : "Профиль опубликован сразу. Уведомления владельцу пока не настроены.")
+    : (notified ? "Профиль сохранён и отправлен на проверку. Команда сообщества получила уведомление." : "Профиль сохранён и отправлен на проверку. Уведомления владельцу пока не настроены.");
+  await ctx.reply(message);
 });
 
 
